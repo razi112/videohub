@@ -1,0 +1,61 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import PublicLayout from './components/layout/PublicLayout'
+import AdminLayout from './components/layout/AdminLayout'
+
+// Public Pages
+import HomePage from './pages/HomePage'
+import VideosPage from './pages/VideosPage'
+import VideoPlayerPage from './pages/VideoPlayerPage'
+import CategoriesPage from './pages/CategoriesPage'
+import FavoritesPage from './pages/FavoritesPage'
+import LoginPage from './pages/LoginPage'
+import ChannelsPage from './pages/ChannelsPage'
+
+// Admin Pages
+import AdminOverview from './pages/admin/AdminOverview'
+import AdminVideosPage from './pages/admin/AdminVideosPage'
+import AddVideoPage from './pages/admin/AddVideoPage'
+import EditVideoPage from './pages/admin/EditVideoPage'
+import AdminDraftsPage from './pages/admin/AdminDraftsPage'
+import AdminFeaturedPage from './pages/admin/AdminFeaturedPage'
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
+import AdminHomepagePage from './pages/admin/AdminHomepagePage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+import AdminChannelsPage from './pages/admin/AdminChannelsPage'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/videos" element={<VideosPage />} />
+          <Route path="/videos/:id" element={<VideoPlayerPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/channels" element={<ChannelsPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/login" element={<LoginPage />} />
+        </Route>
+
+        {/* Admin */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="videos" element={<AdminVideosPage />} />
+          <Route path="videos/add" element={<AddVideoPage />} />
+          <Route path="videos/edit/:id" element={<EditVideoPage />} />
+          <Route path="drafts" element={<AdminDraftsPage />} />
+          <Route path="featured" element={<AdminFeaturedPage />} />
+          <Route path="channels" element={<AdminChannelsPage />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="analytics" element={<AdminAnalyticsPage />} />
+          <Route path="homepage" element={<AdminHomepagePage />} />
+          <Route path="settings" element={<AdminSettingsPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  )
+}
