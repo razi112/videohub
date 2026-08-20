@@ -14,7 +14,7 @@ const ADMIN: User = {
   created_at: new Date().toISOString(),
 }
 
-const ADMIN_PIN = '9961'
+const ADMIN_PIN = '9746'
 
 const KEYS = ['1','2','3','4','5','6','7','8','9','⌫','0','✓']
 
