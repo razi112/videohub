@@ -26,7 +26,7 @@ export default function AdminChannelsPage() {
           <p className="text-gray-500 text-sm mt-0.5">{channels.length} imported channel{channels.length !== 1 ? 's' : ''}</p>
         </div>
         <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-          <Link to="/admin/videos/add"
+          <Link to="/admin/channels/add"
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6c63ff] to-[#5b53ee] text-white rounded-xl text-sm font-medium shadow-md shadow-[#6c63ff]/20">
             <Plus className="w-4 h-4" /> Import Channel
           </Link>
@@ -38,7 +38,7 @@ export default function AdminChannelsPage() {
           <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p className="font-semibold text-gray-400 mb-2">No channels imported yet</p>
           <p className="text-sm mb-6">Go to Add Video and paste a YouTube channel link.</p>
-          <Link to="/admin/videos/add"
+          <Link to="/admin/channels/add"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6c63ff] hover:bg-[#5b53ee] text-white rounded-xl text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Import a Channel
           </Link>

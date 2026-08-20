@@ -26,6 +26,7 @@ import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
 import AdminHomepagePage from './pages/admin/AdminHomepagePage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import AdminChannelsPage from './pages/admin/AdminChannelsPage'
+import AddChannelPage from './pages/admin/AddChannelPage'
 
 export default function App() {
   const { loadVideos, loadCategories } = useStore()
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="drafts" element={<AdminDraftsPage />} />
           <Route path="featured" element={<AdminFeaturedPage />} />
           <Route path="channels" element={<AdminChannelsPage />} />
+          <Route path="channels/add" element={<AddChannelPage />} />
           <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="analytics" element={<AdminAnalyticsPage />} />
