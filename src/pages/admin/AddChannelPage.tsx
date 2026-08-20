@@ -17,30 +17,49 @@ import type { Channel } from '../../types'
 const inputCls = 'w-full bg-[#16161e] border border-[#2a2a3a] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6c63ff]/60 focus:ring-1 focus:ring-[#6c63ff]/30 transition-all'
 
 // ─── CORS proxies to try in order ────────────────────────────────────────────
-const PROXIES = [
-  (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+// Each returns the raw text content of the target URL
+const PROXY_FETCHERS: Array<(url: string) => Promise<string>> = [
+  // corsproxy.io — returns raw content directly
+  async (url) => {
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`)
+    if (!res.ok) throw new Error(`corsproxy ${res.status}`)
+    return res.text()
+  },
+  // allorigins — wraps in JSON { contents }
+  async (url) => {
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+    if (!res.ok) throw new Error(`allorigins ${res.status}`)
+    const data = await res.json()
+    if (typeof data?.contents !== 'string') throw new Error('allorigins empty')
+    return data.contents
+  },
+  // codetabs — returns raw content
+  async (url) => {
+    const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`)
+    if (!res.ok) throw new Error(`codetabs ${res.status}`)
+    return res.text()
+  },
 ]
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out')), ms)
+    ),
+  ])
+}
+
 async function fetchWithProxy(targetUrl: string): Promise<string> {
-  let lastError: Error = new Error('All proxies failed')
-  for (const makeProxy of PROXIES) {
+  for (const fetcher of PROXY_FETCHERS) {
     try {
-      const proxyUrl = makeProxy(targetUrl)
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) })
-      if (!res.ok) continue
-      const data = await res.json().catch(() => null)
-      // allorigins / codetabs return { contents: '...' }
-      if (data && typeof data.contents === 'string') return data.contents
-      // corsproxy.io returns raw text
-      const text = await res.text().catch(() => '')
-      if (text) return text
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e))
+      const text = await withTimeout(fetcher(targetUrl), 12000)
+      if (text && text.length > 50) return text
+    } catch {
+      // try next proxy
     }
   }
-  throw lastError
+  throw new Error('All proxies failed — check your internet connection and try again.')
 }
 
 // ─── Resolve channel ID + RSS from any channel URL ───────────────────────────
@@ -52,11 +71,12 @@ async function resolveChannel(url: string): Promise<{ channelId: string; name: s
   if (info.type === 'channelId') {
     const rssUrl = getChannelRssUrl(info.value)
     const xmlText = await fetchWithProxy(rssUrl)
+    if (!xmlText.includes('<feed')) throw new Error('Invalid RSS response. Try again.')
     const name = parseChannelNameFromRss(xmlText) || 'YouTube Channel'
     return { channelId: info.value, name, xmlText }
   }
 
-  // For @handle — YouTube supports a forHandle query param on the RSS feed directly
+  // For @handle — try YouTube's forHandle RSS endpoint first (no HTML scraping needed)
   if (info.type === 'handle') {
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?forHandle=@${info.value}`
     try {
@@ -81,7 +101,7 @@ async function resolveChannel(url: string): Promise<{ channelId: string; name: s
     html.match(/channel\/(UC[\w-]{22})/) ||
     html.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/)
 
-  if (!match) throw new Error('Could not extract channel ID. Try using the direct channel/UCxxxxx URL instead.')
+  if (!match) throw new Error('Could not extract channel ID. Try pasting the direct youtube.com/channel/UCxxxxx URL.')
 
   const channelId = match[1]
   const rssUrl = getChannelRssUrl(channelId)
