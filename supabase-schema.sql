@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.videos (
   description TEXT,
   thumbnail_url TEXT,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+  channel_id TEXT,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('published', 'draft')),
   is_featured BOOLEAN NOT NULL DEFAULT FALSE,
   views INTEGER NOT NULL DEFAULT 0,
@@ -86,25 +87,28 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.watch_history ENABLE ROW LEVEL SECURITY;
 
--- Videos: anyone can read published, only admins can modify
+-- Videos: anyone can read published videos; anon key can do everything (PIN-protected admin)
 CREATE POLICY "Public read published videos" ON public.videos
-  FOR SELECT USING (status = 'published' OR auth.jwt()->>'role' = 'admin');
+  FOR SELECT USING (status = 'published');
 
-CREATE POLICY "Admins can insert videos" ON public.videos
-  FOR INSERT WITH CHECK (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Anon can read all videos" ON public.videos
+  FOR SELECT USING (auth.role() = 'anon');
 
-CREATE POLICY "Admins can update videos" ON public.videos
-  FOR UPDATE USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Anon can insert videos" ON public.videos
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Admins can delete videos" ON public.videos
-  FOR DELETE USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Anon can update videos" ON public.videos
+  FOR UPDATE USING (true);
 
--- Categories: public read, admin write
+CREATE POLICY "Anon can delete videos" ON public.videos
+  FOR DELETE USING (true);
+
+-- Categories: public read and write (anon)
 CREATE POLICY "Public read categories" ON public.categories
-  FOR SELECT USING (TRUE);
+  FOR SELECT USING (true);
 
-CREATE POLICY "Admins manage categories" ON public.categories
-  FOR ALL USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Anon manage categories" ON public.categories
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- Favorites: users manage their own
 CREATE POLICY "Users manage own favorites" ON public.favorites

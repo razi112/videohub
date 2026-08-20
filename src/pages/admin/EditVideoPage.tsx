@@ -30,23 +30,25 @@ export default function EditVideoPage() {
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Title is required'); return }
     setSaving(true)
-    await new Promise((r) => setTimeout(r, 400))
-
-    const selectedCategory = categories.find((c) => c.id === categoryId)
-    updateVideo(video.id, {
-      title: title.trim(),
-      description: description.trim(),
-      category_id: categoryId || undefined,
-      category: selectedCategory,
-      tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-      status,
-      is_featured: isFeatured,
-      duration: duration.trim() || undefined,
-      updated_at: new Date().toISOString(),
-    })
-    toast.success('Video updated successfully!')
-    setSaving(false)
-    navigate('/admin/videos')
+    try {
+      const selectedCategory = categories.find((c) => c.id === categoryId)
+      await updateVideo(video.id, {
+        title: title.trim(),
+        description: description.trim(),
+        category_id: categoryId || undefined,
+        category: selectedCategory,
+        tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+        status,
+        is_featured: isFeatured,
+        duration: duration.trim() || undefined,
+      })
+      toast.success('Video updated successfully!')
+      navigate('/admin/videos')
+    } catch {
+      toast.error('Failed to update video. Try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

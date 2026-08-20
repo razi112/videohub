@@ -57,28 +57,29 @@ export default function AddVideoPage() {
     if (!videoId) { toast.error('Fetch a video first'); return }
     if (!title.trim()) { toast.error('Title is required'); return }
     setSaving(true)
-    await new Promise(r => setTimeout(r, 400))
-    const selectedCat = categories.find(c => c.id === categoryId)
-    addVideo({
-      id: Date.now().toString(),
-      youtube_url: url,
-      youtube_video_id: videoId,
-      title: title.trim(),
-      description: description.trim(),
-      thumbnail_url: getThumbnailUrl(videoId, 'high'),
-      category_id: categoryId || undefined,
-      category: selectedCat,
-      status,
-      is_featured: isFeatured,
-      views: 0,
-      tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      duration: duration.trim() || undefined,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    toast.success(`Video ${status === 'published' ? 'published' : 'saved as draft'}!`)
-    setSaving(false)
-    navigate('/admin/videos')
+    try {
+      const selectedCat = categories.find(c => c.id === categoryId)
+      await addVideo({
+        youtube_url: url,
+        youtube_video_id: videoId,
+        title: title.trim(),
+        description: description.trim(),
+        thumbnail_url: getThumbnailUrl(videoId, 'high'),
+        category_id: categoryId || undefined,
+        category: selectedCat,
+        status,
+        is_featured: isFeatured,
+        views: 0,
+        tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        duration: duration.trim() || undefined,
+      })
+      toast.success(`Video ${status === 'published' ? 'published' : 'saved as draft'}!`)
+      navigate('/admin/videos')
+    } catch {
+      toast.error('Failed to save video. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

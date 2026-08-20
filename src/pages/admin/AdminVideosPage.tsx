@@ -115,13 +115,13 @@ export default function AdminVideosPage() {
 
   const handleDelete = (id: string) => {
     if (!confirm('Delete this video?')) return
-    deleteVideo(id); toast.success('Video deleted')
+    deleteVideo(id).then(() => toast.success('Video deleted')).catch(() => toast.error('Failed to delete video'))
   }
   const handleToggleStatus = (id: string, status: 'published' | 'draft') => {
-    updateVideo(id, { status }); toast.success(`Video ${status === 'published' ? 'published' : 'unpublished'}`)
+    updateVideo(id, { status }).then(() => toast.success(`Video ${status === 'published' ? 'published' : 'unpublished'}`)).catch(() => toast.error('Failed to update video'))
   }
   const handleToggleFeatured = (id: string, featured: boolean) => {
-    updateVideo(id, { is_featured: featured }); toast.success(featured ? 'Video featured' : 'Unfeatured')
+    updateVideo(id, { is_featured: featured }).then(() => toast.success(featured ? 'Video featured' : 'Unfeatured')).catch(() => toast.error('Failed to update video'))
   }
 
   return (

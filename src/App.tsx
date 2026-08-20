@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useStore } from './store/useStore'
 import PublicLayout from './components/layout/PublicLayout'
 import AdminLayout from './components/layout/AdminLayout'
 
@@ -26,6 +28,13 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import AdminChannelsPage from './pages/admin/AdminChannelsPage'
 
 export default function App() {
+  const { loadVideos, loadCategories } = useStore()
+
+  useEffect(() => {
+    loadCategories()
+    loadVideos()
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
