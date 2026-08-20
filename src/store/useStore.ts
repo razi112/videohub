@@ -248,6 +248,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'videohub-storage',
+      version: 2, // bumped — clears old localStorage with mock video data
       // Only persist user-specific local data, NOT videos/categories (those come from Supabase)
       partialize: (s) => ({
         favorites: s.favorites,
