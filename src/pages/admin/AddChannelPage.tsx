@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Link2, Search, RefreshCw, Users, CheckCircle, AlertCircle,
-  ChevronDown, ChevronUp, X, Download
+  Link2, Search, RefreshCw, Users, AlertCircle, X, Download
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import {
   extractChannelIdentifier, isYouTubeChannelUrl,
   getChannelRssUrl, parseChannelNameFromRss, parseChannelRss,
-  getThumbnailUrl, type RssVideoEntry
+  type RssVideoEntry
 } from '../../lib/youtube'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -124,15 +123,13 @@ export default function AddChannelPage() {
 
   const [channelCategoryId, setChannelCategoryId] = useState('')
   const [channelStatus, setChannelStatus] = useState<'published' | 'draft'>('published')
-  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set())
-  const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
 
   const handleFetch = async () => {
     const trimmed = url.trim()
     if (!trimmed) { toast.error('Enter a YouTube channel URL'); return }
 
-    // Normalize URL — add https:// if missing
     const normalized = trimmed.startsWith('http') ? trimmed : 'https://' + trimmed
 
     if (!isYouTubeChannelUrl(normalized)) {
@@ -140,13 +137,13 @@ export default function AddChannelPage() {
       return
     }
     setFetching(true)
+    setChannelData(null)
     try {
       const { channelId, name, xmlText } = await resolveChannel(normalized)
       const videos = parseChannelRss(xmlText)
       if (videos.length === 0) throw new Error('No public videos found for this channel.')
       setChannelData({ channelId, name, videos })
-      setSelectedVideoIds(new Set(videos.map(v => v.videoId)))
-      toast.success(`Found ${videos.length} videos from "${name}"`)
+      toast.success(`Found ${videos.length} videos from "${name}" — ready to import!`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch channel')
     }
@@ -154,46 +151,40 @@ export default function AddChannelPage() {
   }
 
   const handleReset = () => {
-    setUrl(''); setChannelData(null); setSelectedVideoIds(new Set())
-  }
-
-  const toggleSelect = (id: string) => {
-    setSelectedVideoIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+    setUrl(''); setChannelData(null); setImportProgress(0)
   }
 
   const handleImport = async () => {
     if (!channelData) return
-    if (selectedVideoIds.size === 0) { toast.error('Select at least one video'); return }
     setSaving(true)
+    setImportProgress(0)
 
     const selectedCat = categories.find(c => c.id === channelCategoryId)
     const now = new Date().toISOString()
     const normalized = url.trim().startsWith('http') ? url.trim() : 'https://' + url.trim()
     const info = extractChannelIdentifier(normalized)
 
+    // Save channel record
     const channel: Channel = {
       id: Date.now().toString(),
       channel_id: channelData.channelId,
       name: channelData.name,
       handle: info?.type === 'handle' ? info.value : undefined,
-      channel_url: url.trim(),
+      channel_url: normalized,
       thumbnail_url: channelData.videos[0]?.thumbnailUrl,
       category_id: channelCategoryId || undefined,
       category: selectedCat,
       status: channelStatus,
-      video_count: selectedVideoIds.size,
+      video_count: channelData.videos.length,
       created_at: now,
       updated_at: now,
     }
     addChannel(channel)
 
-    const selected = channelData.videos.filter(v => selectedVideoIds.has(v.videoId))
-    for (let i = 0; i < selected.length; i++) {
-      const entry = selected[i]
+    // Import ALL videos
+    let imported = 0
+    for (let i = 0; i < channelData.videos.length; i++) {
+      const entry = channelData.videos[i]
       try {
         await addVideo({
           youtube_url: `https://www.youtube.com/watch?v=${entry.videoId}`,
@@ -211,22 +202,24 @@ export default function AddChannelPage() {
           created_at: entry.publishedAt,
           updated_at: now,
         })
+        imported++
       } catch {
         // continue on individual failure
       }
+      setImportProgress(Math.round(((i + 1) / channelData.videos.length) * 100))
     }
 
-    toast.success(`Imported ${selected.length} videos from "${channelData.name}"!`)
+    toast.success(`Imported ${imported} videos from "${channelData.name}"!`)
     setSaving(false)
     navigate('/admin/channels')
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-white">Import Channel</h1>
-        <p className="text-gray-500 text-sm mt-1">Paste a YouTube channel link to import its videos.</p>
+        <p className="text-gray-500 text-sm mt-1">Paste a YouTube channel link — all videos will be imported automatically.</p>
       </motion.div>
 
       {/* URL Input */}
@@ -239,7 +232,7 @@ export default function AddChannelPage() {
 
         <div className="flex gap-2 mb-4">
           <span className="flex items-center gap-1.5 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full">
-            <Users className="w-3 h-3" /> Channel import
+            <Users className="w-3 h-3" /> All videos auto-imported
           </span>
         </div>
 
@@ -251,13 +244,13 @@ export default function AddChannelPage() {
               value={url}
               onChange={e => { setUrl(e.target.value); if (channelData) handleReset() }}
               onKeyDown={e => e.key === 'Enter' && handleFetch()}
-              placeholder="https://youtube.com/@channelname  or  youtube.com/channel/UCxxxxx"
+              placeholder="youtube.com/@channelname  or  youtube.com/channel/UCxxxxx"
               className="w-full bg-[#16161e] border border-[#1e1e2e] rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-[#6c63ff]/50 focus:ring-1 focus:ring-[#6c63ff]/20 transition-all"
             />
           </div>
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={handleFetch} disabled={fetching}
+            onClick={handleFetch} disabled={fetching || saving}
             className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-[#6c63ff] to-[#5b53ee] disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-all shadow-md shadow-[#6c63ff]/20 shrink-0"
           >
             {fetching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -268,20 +261,20 @@ export default function AddChannelPage() {
         <p className="text-xs text-gray-700 mt-2.5">
           Supports: youtube.com/@handle · youtube.com/channel/UCxxxxx · youtube.com/c/name
           <br />
-          <span className="text-amber-600">Tip: If @handle fails, copy the channel/UC… URL from YouTube directly.</span>
+          <span className="text-amber-600/80">Tip: If @handle fails, use the youtube.com/channel/UC… URL directly.</span>
         </p>
       </motion.div>
 
-      {/* Channel result */}
+      {/* Channel result + settings */}
       <AnimatePresence>
         {channelData && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="space-y-5"
+            className="space-y-4"
           >
-            {/* Channel header */}
+            {/* Channel card */}
             <div className="bg-[#0d0d14] border border-emerald-500/20 rounded-2xl p-5 sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0 shadow-lg shadow-[#6c63ff]/20">
@@ -290,10 +283,29 @@ export default function AddChannelPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-lg font-bold text-white">{channelData.name}</h2>
-                    <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">Channel</span>
+                    <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      {channelData.videos.length} videos ready
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5 font-mono truncate">{channelData.channelId}</p>
-                  <p className="text-xs text-gray-600 mt-1">{channelData.videos.length} recent videos found via RSS</p>
+                  <p className="text-xs text-gray-500 mt-0.5 font-mono truncate">{channelData.channelId}</p>
+
+                  {/* Video thumbnails preview */}
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
+                    {channelData.videos.slice(0, 6).map(v => (
+                      <img
+                        key={v.videoId}
+                        src={v.thumbnailUrl}
+                        alt={v.title}
+                        className="w-14 h-9 object-cover rounded-md opacity-80"
+                        onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg` }}
+                      />
+                    ))}
+                    {channelData.videos.length > 6 && (
+                      <div className="w-14 h-9 rounded-md bg-[#16161e] border border-[#2a2a3a] flex items-center justify-center text-xs text-gray-500">
+                        +{channelData.videos.length - 6}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button onClick={handleReset} className="p-1.5 text-gray-600 hover:text-white transition-colors shrink-0">
                   <X className="w-4 h-4" />
@@ -301,12 +313,12 @@ export default function AddChannelPage() {
               </div>
             </div>
 
-            {/* Import settings */}
+            {/* Settings */}
             <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-2xl p-5 sm:p-6 space-y-4">
               <h3 className="font-semibold text-white text-sm">Import Settings</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Assign Category</label>
+                  <label className="block text-sm text-gray-400 mb-2">Category</label>
                   <select value={channelCategoryId} onChange={e => setChannelCategoryId(e.target.value)} className={inputCls}>
                     <option value="">No Category</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -322,105 +334,42 @@ export default function AddChannelPage() {
               </div>
             </div>
 
-            {/* Video selection */}
-            <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e1e2e]">
-                <h3 className="font-semibold text-white text-sm">
-                  Select Videos
-                  <span className="ml-2 text-xs font-normal text-gray-500">{selectedVideoIds.size} / {channelData.videos.length} selected</span>
-                </h3>
-                <div className="flex gap-2">
-                  <button onClick={() => setSelectedVideoIds(new Set(channelData.videos.map(v => v.videoId)))}
-                    className="text-xs text-[#6c63ff] hover:text-[#a78bfa] transition-colors">All</button>
-                  <span className="text-gray-700">·</span>
-                  <button onClick={() => setSelectedVideoIds(new Set())}
-                    className="text-xs text-gray-500 hover:text-white transition-colors">None</button>
-                </div>
-              </div>
-
-              <div className="divide-y divide-[#1e1e2e] max-h-[480px] overflow-y-auto">
-                {channelData.videos.map((entry, i) => {
-                  const selected = selectedVideoIds.has(entry.videoId)
-                  const expanded = expandedVideo === entry.videoId
-                  return (
-                    <motion.div
-                      key={entry.videoId}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className={`transition-colors ${selected ? 'bg-[#111118]' : 'hover:bg-[#0f0f18]'}`}
-                    >
-                      <div className="flex items-center gap-3 px-4 py-3">
-                        <button
-                          onClick={() => toggleSelect(entry.videoId)}
-                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                            selected ? 'bg-[#6c63ff] border-[#6c63ff]' : 'border-[#2a2a3a] hover:border-[#6c63ff]/50'
-                          }`}
-                        >
-                          {selected && <CheckCircle className="w-3 h-3 text-white" />}
-                        </button>
-                        <img
-                          src={entry.thumbnailUrl}
-                          alt={entry.title}
-                          className="w-16 h-10 sm:w-20 sm:h-12 object-cover rounded-lg shrink-0"
-                          onError={e => { (e.target as HTMLImageElement).src = getThumbnailUrl(entry.videoId) }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs sm:text-sm font-medium truncate transition-colors ${selected ? 'text-white' : 'text-gray-400'}`}>
-                            {entry.title}
-                          </p>
-                          <p className="text-xs text-gray-600 mt-0.5">
-                            {new Date(entry.publishedAt).toLocaleDateString()}
-                            {entry.viewCount && ` · ${parseInt(entry.viewCount).toLocaleString()} views`}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setExpandedVideo(expanded ? null : entry.videoId)}
-                          className="p-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0"
-                        >
-                          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <AnimatePresence>
-                        {expanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <p className="px-4 pb-3 text-xs text-gray-500 leading-relaxed line-clamp-3 ml-8">
-                              {entry.description || 'No description available.'}
-                            </p>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Warning */}
+            {/* Note */}
             <div className="flex items-start gap-2.5 p-4 bg-amber-500/8 border border-amber-500/15 rounded-xl">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-300/80 leading-relaxed">
-                Videos are fetched from YouTube's public RSS feed (no API key needed). Returns the ~15 most recent public videos.
+                Fetched from YouTube's public RSS feed — returns the ~15 most recent public videos. All {channelData.videos.length} will be imported.
               </p>
             </div>
+
+            {/* Progress bar while importing */}
+            {saving && (
+              <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-400">Importing videos...</span>
+                  <span className="text-xs text-[#a78bfa]">{importProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-[#1e1e2e] rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-[#6c63ff] to-[#a78bfa] rounded-full"
+                    animate={{ width: `${importProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Import button */}
             <motion.button
               whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
               onClick={handleImport}
-              disabled={saving || selectedVideoIds.size === 0}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 disabled:opacity-50 text-white py-3 rounded-xl font-semibold transition-all shadow-md shadow-emerald-600/20"
+              disabled={saving}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 disabled:opacity-60 text-white py-3.5 rounded-xl font-semibold transition-all shadow-md shadow-emerald-600/20 text-sm"
             >
               {saving ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Importing...</>
+                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Importing {channelData.videos.length} videos...</>
               ) : (
-                <><Download className="w-4 h-4" /> Import {selectedVideoIds.size} Video{selectedVideoIds.size !== 1 ? 's' : ''} from Channel</>
+                <><Download className="w-4 h-4" /> Import All {channelData.videos.length} Videos</>
               )}
             </motion.button>
           </motion.div>
