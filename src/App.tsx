@@ -35,6 +35,12 @@ export default function App() {
     loadVideos()
   }, [])
 
+  // Reload videos when admin status changes (login/logout)
+  const isAdmin = useStore(s => s.isAdmin)
+  useEffect(() => {
+    loadVideos()
+  }, [isAdmin])
+
   return (
     <BrowserRouter>
       <Routes>
