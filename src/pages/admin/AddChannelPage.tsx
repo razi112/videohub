@@ -16,39 +16,76 @@ import type { Channel } from '../../types'
 
 const inputCls = 'w-full bg-[#16161e] border border-[#2a2a3a] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6c63ff]/60 focus:ring-1 focus:ring-[#6c63ff]/30 transition-all'
 
+// ─── CORS proxies to try in order ────────────────────────────────────────────
+const PROXIES = [
+  (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+]
+
+async function fetchWithProxy(targetUrl: string): Promise<string> {
+  let lastError: Error = new Error('All proxies failed')
+  for (const makeProxy of PROXIES) {
+    try {
+      const proxyUrl = makeProxy(targetUrl)
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) })
+      if (!res.ok) continue
+      const data = await res.json().catch(() => null)
+      // allorigins / codetabs return { contents: '...' }
+      if (data && typeof data.contents === 'string') return data.contents
+      // corsproxy.io returns raw text
+      const text = await res.text().catch(() => '')
+      if (text) return text
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+    }
+  }
+  throw lastError
+}
+
 // ─── Resolve channel ID + RSS from any channel URL ───────────────────────────
 async function resolveChannel(url: string): Promise<{ channelId: string; name: string; xmlText: string }> {
   const info = extractChannelIdentifier(url)
   if (!info) throw new Error('Not a valid YouTube channel URL')
 
+  // For direct channel IDs — fetch RSS straight away
   if (info.type === 'channelId') {
     const rssUrl = getChannelRssUrl(info.value)
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`
-    const res = await fetch(proxy)
-    if (!res.ok) throw new Error('Could not fetch channel feed')
-    const data = await res.json()
-    const xmlText = data.contents as string
+    const xmlText = await fetchWithProxy(rssUrl)
     const name = parseChannelNameFromRss(xmlText) || 'YouTube Channel'
     return { channelId: info.value, name, xmlText }
   }
 
-  // For @handle / /c/ / /user/ — scrape the channel page to extract channel ID
+  // For @handle — YouTube supports a forHandle query param on the RSS feed directly
+  if (info.type === 'handle') {
+    const rssUrl = `https://www.youtube.com/feeds/videos.xml?forHandle=@${info.value}`
+    try {
+      const xmlText = await fetchWithProxy(rssUrl)
+      if (xmlText && xmlText.includes('<feed')) {
+        const channelIdMatch = xmlText.match(/<yt:channelId>(UC[\w-]{22})<\/yt:channelId>/)
+        const channelId = channelIdMatch ? channelIdMatch[1] : info.value
+        const name = parseChannelNameFromRss(xmlText) || info.value
+        return { channelId, name, xmlText }
+      }
+    } catch {
+      // fall through to HTML scrape
+    }
+  }
+
+  // Fallback: scrape channel page HTML to extract the UCxxx channel ID
   const channelPageUrl = url.startsWith('http') ? url : `https://www.youtube.com/${url}`
-  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(channelPageUrl)}`
-  const res = await fetch(proxy)
-  if (!res.ok) throw new Error('Could not fetch channel page')
-  const data = await res.json()
-  const html: string = data.contents
-  const match = html.match(/"channelId":"(UC[\w-]{22})"/) || html.match(/channel\/(UC[\w-]{22})/)
-  if (!match) throw new Error('Could not extract channel ID. The channel may have privacy restrictions.')
+  const html = await fetchWithProxy(channelPageUrl)
+
+  const match =
+    html.match(/"channelId"\s*:\s*"(UC[\w-]{22})"/) ||
+    html.match(/channel\/(UC[\w-]{22})/) ||
+    html.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/)
+
+  if (!match) throw new Error('Could not extract channel ID. Try using the direct channel/UCxxxxx URL instead.')
 
   const channelId = match[1]
   const rssUrl = getChannelRssUrl(channelId)
-  const rssProxy = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`
-  const rssRes = await fetch(rssProxy)
-  if (!rssRes.ok) throw new Error('Could not fetch channel RSS feed')
-  const rssData = await rssRes.json()
-  const xmlText = rssData.contents as string
+  const xmlText = await fetchWithProxy(rssUrl)
   const name = parseChannelNameFromRss(xmlText) || 'YouTube Channel'
   return { channelId, name, xmlText }
 }
@@ -189,7 +226,7 @@ export default function AddChannelPage() {
               value={url}
               onChange={e => { setUrl(e.target.value); if (channelData) handleReset() }}
               onKeyDown={e => e.key === 'Enter' && handleFetch()}
-              placeholder="https://youtube.com/@channelname"
+              placeholder="https://youtube.com/@channelname  or  youtube.com/channel/UCxxxxx"
               className="w-full bg-[#16161e] border border-[#1e1e2e] rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-[#6c63ff]/50 focus:ring-1 focus:ring-[#6c63ff]/20 transition-all"
             />
           </div>
@@ -205,6 +242,8 @@ export default function AddChannelPage() {
 
         <p className="text-xs text-gray-700 mt-2.5">
           Supports: youtube.com/@handle · youtube.com/channel/UCxxxxx · youtube.com/c/name
+          <br />
+          <span className="text-amber-600">Tip: If @handle fails, copy the channel/UC… URL from YouTube directly.</span>
         </p>
       </motion.div>
 
