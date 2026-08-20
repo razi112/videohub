@@ -111,13 +111,17 @@ export default function AddChannelPage() {
   const handleFetch = async () => {
     const trimmed = url.trim()
     if (!trimmed) { toast.error('Enter a YouTube channel URL'); return }
-    if (!isYouTubeChannelUrl(trimmed)) {
+
+    // Normalize URL — add https:// if missing
+    const normalized = trimmed.startsWith('http') ? trimmed : 'https://' + trimmed
+
+    if (!isYouTubeChannelUrl(normalized)) {
       toast.error('Not a valid channel URL. Try youtube.com/@handle or youtube.com/channel/UC...')
       return
     }
     setFetching(true)
     try {
-      const { channelId, name, xmlText } = await resolveChannel(trimmed)
+      const { channelId, name, xmlText } = await resolveChannel(normalized)
       const videos = parseChannelRss(xmlText)
       if (videos.length === 0) throw new Error('No public videos found for this channel.')
       setChannelData({ channelId, name, videos })
@@ -148,7 +152,8 @@ export default function AddChannelPage() {
 
     const selectedCat = categories.find(c => c.id === channelCategoryId)
     const now = new Date().toISOString()
-    const info = extractChannelIdentifier(url.trim())
+    const normalized = url.trim().startsWith('http') ? url.trim() : 'https://' + url.trim()
+    const info = extractChannelIdentifier(normalized)
 
     const channel: Channel = {
       id: Date.now().toString(),

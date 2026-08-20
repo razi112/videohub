@@ -77,7 +77,12 @@ export function extractChannelIdentifier(url: string): {
 } | null {
   if (!url) return null
   try {
-    const u = new URL(url.startsWith('http') ? url : `https://${url}`)
+    // Normalize: add https:// if missing
+    let normalized = url.trim()
+    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+      normalized = 'https://' + normalized
+    }
+    const u = new URL(normalized)
     const path = u.pathname
 
     // @handle  →  youtube.com/@handle
