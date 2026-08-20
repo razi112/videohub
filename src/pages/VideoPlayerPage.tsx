@@ -61,19 +61,19 @@ export default function VideoPlayerPage() {
         Back
       </button>
 
-      <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="flex flex-col xl:flex-row gap-6 lg:gap-8">
 
         {/* ── Main ── */}
-        <div className="lg:col-span-2 min-w-0">
+        <div className="flex-1 min-w-0">
 
           {/* Player */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl sm:rounded-2xl overflow-hidden bg-black border border-[#2a2a3a] shadow-2xl shadow-black/50"
+            className="rounded-xl sm:rounded-2xl overflow-hidden bg-black border border-[#2a2a3a] shadow-2xl shadow-black/50 w-full"
           >
             {!embedError ? (
-              <div className="relative aspect-video">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 <iframe
                   src={getEmbedUrl(video.youtube_video_id, { rel: false })}
                   title={video.title}
@@ -189,7 +189,7 @@ export default function VideoPlayerPage() {
         </div>
 
         {/* ── Related Videos ── */}
-        <div className="min-w-0">
+        <div className="xl:w-80 shrink-0 min-w-0">
           <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Related Videos</h3>
           {relatedVideos.length === 0 ? (
             <p className="text-gray-500 text-sm">No related videos found.</p>
