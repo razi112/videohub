@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import type { Category } from '../../types'
 import toast from 'react-hot-toast'
 
 export default function AdminCategoriesPage() {
@@ -16,32 +15,36 @@ export default function AdminCategoriesPage() {
 
   const resetForm = () => { setName(''); setDescription(''); setEditingId(null); setShowForm(false) }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) { toast.error('Category name is required'); return }
     const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    if (editingId) {
-      updateCategory(editingId, { name: name.trim(), slug, description: description.trim() })
-      toast.success('Category updated')
-    } else {
-      const newCat: Category = {
-        id: Date.now().toString(), name: name.trim(), slug,
-        description: description.trim(), created_at: new Date().toISOString(),
+    try {
+      if (editingId) {
+        await updateCategory(editingId, { name: name.trim(), slug, description: description.trim() })
+        toast.success('Category updated')
+      } else {
+        await addCategory({ name: name.trim(), slug, description: description.trim() })
+        toast.success('Category created')
       }
-      addCategory(newCat)
-      toast.success('Category created')
+      resetForm()
+    } catch {
+      toast.error('Failed to save category')
     }
-    resetForm()
   }
 
   const handleEdit = (cat: Category) => {
     setEditingId(cat.id); setName(cat.name); setDescription(cat.description || ''); setShowForm(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const count = getVideoCount(id)
     if (!confirm(count > 0 ? `This category has ${count} videos. Delete anyway?` : 'Delete this category?')) return
-    deleteCategory(id)
-    toast.success('Category deleted')
+    try {
+      await deleteCategory(id)
+      toast.success('Category deleted')
+    } catch {
+      toast.error('Failed to delete category')
+    }
   }
 
   return (

@@ -15,7 +15,7 @@ const navItems = [
   { label: 'Drafts',      icon: FileText,        href: '/admin/drafts' },
   { label: 'Featured',    icon: Star,            href: '/admin/featured' },
   { label: 'Channels',    icon: Tv2,             href: '/admin/channels' },
-  { label: 'Add Channel', icon: PlusCircle,      href: '/admin/channels/add' },
+  { label: 'Add Channel', icon: PlusCircle,      href: '/admin/channels/add', comingSoon: true },
   { label: 'Categories',  icon: Tag,             href: '/admin/categories' },
   { label: 'Users',       icon: Users,           href: '/admin/users' },
   { label: 'Analytics',   icon: BarChart2,       href: '/admin/analytics' },
@@ -117,6 +117,11 @@ export default function AdminLayout() {
                           <item.icon className="w-4 h-4 shrink-0" />
                         </motion.div>
                         <span className={active ? 'text-[#a78bfa]' : ''}>{item.label}</span>
+                        {item.comingSoon && !active && (
+                          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#6c63ff]/15 text-[#a78bfa] border border-[#6c63ff]/25 leading-none">
+                            Soon
+                          </span>
+                        )}
                         {active && (
                           <motion.div
                             initial={{ opacity: 0, x: -4 }}

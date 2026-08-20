@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Custom breakpoints */
+@theme {
+  --breakpoint-xs: 480px;
+}
+
 @layer base {
   :root {
     --bg-primary: #0a0a0f;
@@ -40,5 +45,15 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--accent);
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

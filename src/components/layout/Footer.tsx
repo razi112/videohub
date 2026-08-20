@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { PlayCircle } from 'lucide-react'
 
 export default function Footer() {
   return (
@@ -35,11 +34,10 @@ export default function Footer() {
             <h4 className="text-white font-semibold mb-3 text-sm">Info</h4>
             <ul className="space-y-2 text-sm text-gray-500">
               <li className="flex items-center gap-2">
-                <PlayCircle className="w-4 h-4 text-red-500" />
                 Videos powered by YouTube
               </li>
               <li>
-                <Link to="/login" className="hover:text-white transition-colors">Admin Area</Link>
+                <Link to="/login" className="hover:text-white transition-colors">Admin Panel</Link>
               </li>
             </ul>
           </div>
@@ -47,7 +45,6 @@ export default function Footer() {
 
         <div className="border-t border-[#2a2a3a] pt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-600">
           <p>© {new Date().getFullYear()} VideoHub. All rights reserved.</p>
-          <p>Built with React + Supabase + YouTube IFrame API</p>
         </div>
       </div>
     </footer>

@@ -7,15 +7,23 @@ import toast from 'react-hot-toast'
 export default function AdminChannelsPage() {
   const { channels, deleteChannel, updateChannel } = useStore()
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Delete this channel record? (Videos will stay)')) return
-    deleteChannel(id)
-    toast.success('Channel removed')
+    try {
+      await deleteChannel(id)
+      toast.success('Channel removed')
+    } catch {
+      toast.error('Failed to delete channel')
+    }
   }
 
-  const handleToggle = (id: string, status: 'published' | 'draft') => {
-    updateChannel(id, { status })
-    toast.success(status === 'published' ? 'Channel published' : 'Channel hidden')
+  const handleToggle = async (id: string, status: 'published' | 'draft') => {
+    try {
+      await updateChannel(id, { status })
+      toast.success(status === 'published' ? 'Channel published' : 'Channel hidden')
+    } catch {
+      toast.error('Failed to update channel')
+    }
   }
 
   return (

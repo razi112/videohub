@@ -29,7 +29,7 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
       className="group relative bg-[#16161e] rounded-2xl overflow-hidden border border-[#2a2a3a] cursor-pointer"
       style={{ willChange: 'transform' }}
     >
-      <Link to={`/videos/${video.id}`} className="block">
+      <Link to={`/videos/${video.id}?autoplay=1`} className="block">
 
         {/* ── Thumbnail ── */}
         <div className="relative overflow-hidden aspect-video bg-[#0e0e16]">

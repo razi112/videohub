@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import VideoCard from '../components/ui/VideoCard'
 import CategoryFilter from '../components/ui/CategoryFilter'
-import SearchBar from '../components/ui/SearchBar'
 import { getEmbedUrl } from '../lib/youtube'
 import { useMemo } from 'react'
 
@@ -47,8 +46,8 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff]/20 via-[#0a0a0f] to-[#0a0a0f]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#6c63ff22,_transparent_60%)]" />
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 lg:py-20 w-full">
-            <div className="grid lg:grid-cols-2 gap-8 lg:gap-10 items-center">
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-14 lg:py-20 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-center">
 
               {/* Text */}
               <motion.div
@@ -117,7 +116,6 @@ export default function HomePage() {
       {/* ── Search + Filter ── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="space-y-3 sm:space-y-4">
-          <SearchBar />
           <CategoryFilter />
         </div>
       </section>

@@ -29,17 +29,19 @@ import AdminChannelsPage from './pages/admin/AdminChannelsPage'
 import AddChannelPage from './pages/admin/AddChannelPage'
 
 export default function App() {
-  const { loadVideos, loadCategories } = useStore()
+  const { loadVideos, loadCategories, loadChannels } = useStore()
 
   useEffect(() => {
     loadCategories()
     loadVideos()
+    loadChannels()
   }, [])
 
   // Reload videos when admin status changes (login/logout)
   const isAdmin = useStore(s => s.isAdmin)
   useEffect(() => {
     loadVideos()
+    loadChannels()
   }, [isAdmin])
 
   return (
@@ -53,8 +55,10 @@ export default function App() {
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/channels" element={<ChannelsPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/login" element={<LoginPage />} />
         </Route>
+
+        {/* Standalone pages (no header/footer) */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Admin */}
         <Route path="/admin" element={<AdminLayout />}>

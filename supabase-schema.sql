@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
 CREATE TABLE IF NOT EXISTS public.videos (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   youtube_url TEXT NOT NULL,
-  youtube_video_id TEXT NOT NULL,
+  youtube_video_id TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
   description TEXT,
   thumbnail_url TEXT,
@@ -61,6 +61,42 @@ CREATE TABLE IF NOT EXISTS public.watch_history (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, video_id)
 );
+
+-- Channels table
+CREATE TABLE IF NOT EXISTS public.channels (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  channel_id TEXT NOT NULL UNIQUE,   -- YouTube UCxxxxxxx ID
+  name TEXT NOT NULL,
+  handle TEXT,                       -- @handle (without @)
+  description TEXT,
+  thumbnail_url TEXT,
+  banner_url TEXT,
+  subscriber_count TEXT,
+  video_count INTEGER DEFAULT 0,
+  channel_url TEXT NOT NULL,
+  category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+  tags TEXT[] DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('published', 'draft')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.channels ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read published channels" ON public.channels
+  FOR SELECT USING (status = 'published');
+
+CREATE POLICY "Anon can read all channels" ON public.channels
+  FOR SELECT USING (auth.role() = 'anon');
+
+CREATE POLICY "Anon can insert channels" ON public.channels
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anon can update channels" ON public.channels
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Anon can delete channels" ON public.channels
+  FOR DELETE USING (true);
 
 -- Collections table
 CREATE TABLE IF NOT EXISTS public.collections (

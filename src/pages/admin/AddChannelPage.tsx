@@ -1,123 +1,160 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Link2, Search, RefreshCw, Users, AlertCircle, X, Download
+  Link2, Search, RefreshCw, Users, AlertCircle, X, Download, Key, CheckCircle2
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import {
   extractChannelIdentifier, isYouTubeChannelUrl,
   getChannelRssUrl, parseChannelNameFromRss, parseChannelRss,
-  type RssVideoEntry
+  resolveChannelIdViaApi, fetchChannelVideosViaApi, hasYouTubeApiKey,
+  filterOutShortsFromRss,
+  type RssVideoEntry,
 } from '../../lib/youtube'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
-import type { Channel } from '../../types'
 
 const inputCls = 'w-full bg-[#16161e] border border-[#2a2a3a] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6c63ff]/60 focus:ring-1 focus:ring-[#6c63ff]/30 transition-all'
 
-// ─── CORS proxies to try in order ────────────────────────────────────────────
-// Each returns the raw text content of the target URL
-const PROXY_FETCHERS: Array<(url: string) => Promise<string>> = [
-  // corsproxy.io — returns raw content directly
-  async (url) => {
-    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`)
-    if (!res.ok) throw new Error(`corsproxy ${res.status}`)
-    return res.text()
-  },
-  // allorigins — wraps in JSON { contents }
-  async (url) => {
-    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
-    if (!res.ok) throw new Error(`allorigins ${res.status}`)
-    const data = await res.json()
-    if (typeof data?.contents !== 'string') throw new Error('allorigins empty')
-    return data.contents
-  },
-  // codetabs — returns raw content
-  async (url) => {
-    const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`)
-    if (!res.ok) throw new Error(`codetabs ${res.status}`)
-    return res.text()
-  },
-]
+// ─── RSS fetch (no API key) ───────────────────────────────────────────────────
+// Priority: Supabase Edge Function → Vite dev proxy → public proxies (raced)
+
+const isDev = import.meta.env.DEV
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const EDGE_FN_URL = `${SUPABASE_URL}/functions/v1/fetch-channel-rss`
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out')), ms)
-    ),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
   ])
 }
 
-async function fetchWithProxy(targetUrl: string): Promise<string> {
-  for (const fetcher of PROXY_FETCHERS) {
-    try {
-      const text = await withTimeout(fetcher(targetUrl), 12000)
-      if (text && text.length > 50) return text
-    } catch {
-      // try next proxy
-    }
-  }
-  throw new Error('All proxies failed — check your internet connection and try again.')
+async function tryEdgeFunction(targetUrl: string): Promise<string> {
+  const res = await fetch(`${EDGE_FN_URL}?url=${encodeURIComponent(targetUrl)}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  })
+  if (!res.ok) throw new Error(`edge ${res.status}`)
+  const text = await res.text()
+  if (!text || text.length < 100 || !text.includes('<')) throw new Error('edge empty')
+  return text
 }
 
-// ─── Resolve channel ID + RSS from any channel URL ───────────────────────────
-async function resolveChannel(url: string): Promise<{ channelId: string; name: string; xmlText: string }> {
+async function tryDevProxy(targetUrl: string): Promise<string> {
+  if (!isDev) throw new Error('not dev')
+  const u = new URL(targetUrl)
+  if (!u.hostname.includes('youtube.com')) throw new Error('not yt')
+  const res = await fetch('/yt-rss' + u.search)
+  if (!res.ok) throw new Error(`dev proxy ${res.status}`)
+  const text = await res.text()
+  if (!text || text.length < 100) throw new Error('dev proxy empty')
+  return text
+}
+
+const PUBLIC_PROXIES = [
+  (url: string) => fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw new Error(r.status.toString()); return r.text() }),
+  (url: string) => fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`).then(r => r.json()).then(d => { if (typeof d?.contents !== 'string') throw new Error('empty'); return d.contents as string }),
+  (url: string) => fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`).then(r => { if (!r.ok) throw new Error(r.status.toString()); return r.text() }),
+  (url: string) => fetch(`https://thingproxy.freeboard.io/fetch/${url}`).then(r => { if (!r.ok) throw new Error(r.status.toString()); return r.text() }),
+]
+
+async function fetchRss(targetUrl: string): Promise<string> {
+  // 1. Supabase Edge Function
+  try {
+    return await withTimeout(tryEdgeFunction(targetUrl), 8000)
+  } catch { /* fall through */ }
+
+  // 2. Vite dev proxy (localhost only)
+  if (isDev) {
+    try {
+      return await withTimeout(tryDevProxy(targetUrl), 5000)
+    } catch { /* fall through */ }
+  }
+
+  // 3. Race all public proxies
+  const race = PUBLIC_PROXIES.map(fn =>
+    withTimeout(fn(targetUrl), 12000).then(text => {
+      if (!text || text.length < 100 || !text.includes('<feed')) throw new Error('invalid')
+      return text
+    })
+  )
+  return Promise.any(race).catch(() => {
+    throw new Error('RSS_BLOCKED')
+  })
+}
+
+// ─── Resolve channel via API key (fast, reliable) ────────────────────────────
+async function resolveViaApiKey(url: string): Promise<{ channelId: string; name: string; handle?: string; thumbnailUrl?: string; videos: RssVideoEntry[] }> {
   const info = extractChannelIdentifier(url)
   if (!info) throw new Error('Not a valid YouTube channel URL')
 
-  // For direct channel IDs — fetch RSS straight away
+  // resolveChannelIdViaApi also fetches contentDetails so we get uploadsPlaylistId
+  // in the same request — fetchChannelVideosViaApi reuses it to avoid a second lookup
+  const channelInfo = await resolveChannelIdViaApi(info)
+  const videos = await fetchChannelVideosViaApi(channelInfo.channelId, 15, channelInfo.uploadsPlaylistId)
+
+  return {
+    channelId: channelInfo.channelId,
+    name: channelInfo.name,
+    handle: channelInfo.handle,
+    thumbnailUrl: channelInfo.thumbnailUrl,
+    videos,
+  }
+}
+
+// ─── Resolve channel via RSS (no API key) ────────────────────────────────────
+async function resolveViaRss(url: string): Promise<{ channelId: string; name: string; videos: RssVideoEntry[] }> {
+  const info = extractChannelIdentifier(url)
+  if (!info) throw new Error('Not a valid YouTube channel URL')
+
   if (info.type === 'channelId') {
     const rssUrl = getChannelRssUrl(info.value)
-    const xmlText = await fetchWithProxy(rssUrl)
-    if (!xmlText.includes('<feed')) throw new Error('Invalid RSS response. Try again.')
-    const name = parseChannelNameFromRss(xmlText) || 'YouTube Channel'
-    return { channelId: info.value, name, xmlText }
-  }
-
-  // For @handle — try YouTube's forHandle RSS endpoint first (no HTML scraping needed)
-  if (info.type === 'handle') {
-    const rssUrl = `https://www.youtube.com/feeds/videos.xml?forHandle=@${info.value}`
-    try {
-      const xmlText = await fetchWithProxy(rssUrl)
-      if (xmlText && xmlText.includes('<feed')) {
-        const channelIdMatch = xmlText.match(/<yt:channelId>(UC[\w-]{22})<\/yt:channelId>/)
-        const channelId = channelIdMatch ? channelIdMatch[1] : info.value
-        const name = parseChannelNameFromRss(xmlText) || info.value
-        return { channelId, name, xmlText }
-      }
-    } catch {
-      // fall through to HTML scrape
+    const xmlText = await fetchRss(rssUrl)
+    if (!xmlText.includes('<feed')) throw new Error('Invalid RSS response.')
+    const allVideos = parseChannelRss(xmlText)
+    const videos = await filterOutShortsFromRss(allVideos)
+    return {
+      channelId: info.value,
+      name: parseChannelNameFromRss(xmlText) || 'YouTube Channel',
+      videos,
     }
   }
 
-  // Fallback: scrape channel page HTML to extract the UCxxx channel ID
-  const channelPageUrl = url.startsWith('http') ? url : `https://www.youtube.com/${url}`
-  const html = await fetchWithProxy(channelPageUrl)
+  if (info.type === 'handle') {
+    const rssUrl = `https://www.youtube.com/feeds/videos.xml?forHandle=@${info.value}`
+    const xmlText = await fetchRss(rssUrl)
+    if (xmlText.includes('<feed')) {
+      const m = xmlText.match(/<yt:channelId>(UC[\w-]{22})<\/yt:channelId>/)
+      const allVideos = parseChannelRss(xmlText)
+      const videos = await filterOutShortsFromRss(allVideos)
+      return {
+        channelId: m ? m[1] : info.value,
+        name: parseChannelNameFromRss(xmlText) || info.value,
+        videos,
+      }
+    }
+  }
 
-  const match =
-    html.match(/"channelId"\s*:\s*"(UC[\w-]{22})"/) ||
-    html.match(/channel\/(UC[\w-]{22})/) ||
-    html.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/)
-
-  if (!match) throw new Error('Could not extract channel ID. Try pasting the direct youtube.com/channel/UCxxxxx URL.')
-
-  const channelId = match[1]
-  const rssUrl = getChannelRssUrl(channelId)
-  const xmlText = await fetchWithProxy(rssUrl)
-  const name = parseChannelNameFromRss(xmlText) || 'YouTube Channel'
-  return { channelId, name, xmlText }
+  throw new Error('Could not resolve channel. Add a YouTube API key in .env for reliable fetching.')
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function AddChannelPage() {
-  const { categories, addVideo, addChannel } = useStore()
+  const { categories, addVideo, addChannel, updateChannel } = useStore()
   const navigate = useNavigate()
+  const hasApiKey = hasYouTubeApiKey()
 
   const [url, setUrl] = useState('')
   const [fetching, setFetching] = useState(false)
+  const [fetchStatus, setFetchStatus] = useState('')
+  const [rssBlocked, setRssBlocked] = useState(false)
+
   const [channelData, setChannelData] = useState<{
     channelId: string
     name: string
+    handle?: string
+    thumbnailUrl?: string
     videos: RssVideoEntry[]
   } | null>(null)
 
@@ -129,29 +166,44 @@ export default function AddChannelPage() {
   const handleFetch = async () => {
     const trimmed = url.trim()
     if (!trimmed) { toast.error('Enter a YouTube channel URL'); return }
-
     const normalized = trimmed.startsWith('http') ? trimmed : 'https://' + trimmed
-
     if (!isYouTubeChannelUrl(normalized)) {
-      toast.error('Not a valid channel URL. Try youtube.com/@handle or youtube.com/channel/UC...')
+      toast.error('Not a valid channel URL. Try youtube.com/@handle or youtube.com/channel/UCxxxxx')
       return
     }
+
     setFetching(true)
     setChannelData(null)
+    setRssBlocked(false)
+    setFetchStatus(hasApiKey ? 'Looking up channel…' : 'Fetching RSS feed…')
+
     try {
-      const { channelId, name, xmlText } = await resolveChannel(normalized)
-      const videos = parseChannelRss(xmlText)
-      if (videos.length === 0) throw new Error('No public videos found for this channel.')
-      setChannelData({ channelId, name, videos })
-      toast.success(`Found ${videos.length} videos from "${name}" — ready to import!`)
+      let result: { channelId: string; name: string; handle?: string; thumbnailUrl?: string; videos: RssVideoEntry[] }
+
+      if (hasApiKey) {
+        result = await resolveViaApiKey(normalized)
+      } else {
+        result = await resolveViaRss(normalized)
+      }
+
+      if (result.videos.length === 0) throw new Error('No public videos found for this channel.')
+      setChannelData(result)
+      toast.success(`Found ${result.videos.length} videos from "${result.name}"`)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch channel')
+      const msg = err instanceof Error ? err.message : 'Failed to fetch channel'
+      if (msg === 'RSS_BLOCKED' || msg.includes('RSS')) {
+        setRssBlocked(true)
+      } else {
+        toast.error(msg)
+      }
     }
+
+    setFetchStatus('')
     setFetching(false)
   }
 
   const handleReset = () => {
-    setUrl(''); setChannelData(null); setImportProgress(0)
+    setUrl(''); setChannelData(null); setImportProgress(0); setRssBlocked(false)
   }
 
   const handleImport = async () => {
@@ -164,75 +216,112 @@ export default function AddChannelPage() {
     const normalized = url.trim().startsWith('http') ? url.trim() : 'https://' + url.trim()
     const info = extractChannelIdentifier(normalized)
 
-    // Save channel record
-    const channel: Channel = {
-      id: Date.now().toString(),
-      channel_id: channelData.channelId,
-      name: channelData.name,
-      handle: info?.type === 'handle' ? info.value : undefined,
-      channel_url: normalized,
-      thumbnail_url: channelData.videos[0]?.thumbnailUrl,
-      category_id: channelCategoryId || undefined,
-      category: selectedCat,
-      status: channelStatus,
-      video_count: channelData.videos.length,
-      created_at: now,
-      updated_at: now,
+    let savedChannel: import('../../types').Channel
+    try {
+      savedChannel = await addChannel({
+        channel_id: channelData.channelId,
+        name: channelData.name,
+        handle: channelData.handle || (info?.type === 'handle' ? info.value : undefined),
+        channel_url: normalized,
+        thumbnail_url: channelData.thumbnailUrl || channelData.videos[0]?.thumbnailUrl,
+        category_id: channelCategoryId || undefined,
+        category: selectedCat,
+        status: channelStatus,
+        video_count: channelData.videos.length,
+        updated_at: now,
+      })
+    } catch {
+      toast.error('Failed to save channel record')
+      setSaving(false)
+      return
     }
-    addChannel(channel)
 
-    // Import ALL videos
+    // Batch insert 5 at a time
+    const BATCH = 5
     let imported = 0
-    for (let i = 0; i < channelData.videos.length; i++) {
-      const entry = channelData.videos[i]
-      try {
-        await addVideo({
-          youtube_url: `https://www.youtube.com/watch?v=${entry.videoId}`,
-          youtube_video_id: entry.videoId,
-          title: entry.title,
-          description: entry.description,
-          thumbnail_url: entry.thumbnailUrl,
-          category_id: channelCategoryId || undefined,
-          category: selectedCat,
-          channel_id: channelData.channelId,
-          status: channelStatus,
-          is_featured: false,
-          views: parseInt(entry.viewCount || '0') || 0,
-          tags: [],
-          created_at: entry.publishedAt,
-          updated_at: now,
-        })
-        imported++
-      } catch {
-        // continue on individual failure
-      }
-      setImportProgress(Math.round(((i + 1) / channelData.videos.length) * 100))
+    const total = channelData.videos.length
+
+    for (let i = 0; i < total; i += BATCH) {
+      const slice = channelData.videos.slice(i, i + BATCH)
+      const results = await Promise.allSettled(
+        slice.map(entry =>
+          addVideo({
+            youtube_url: `https://www.youtube.com/watch?v=${entry.videoId}`,
+            youtube_video_id: entry.videoId,
+            title: entry.title,
+            description: entry.description,
+            thumbnail_url: entry.thumbnailUrl,
+            category_id: channelCategoryId || undefined,
+            category: selectedCat,
+            channel_id: channelData.channelId,
+            status: channelStatus,
+            is_featured: false,
+            views: parseInt(entry.viewCount || '0') || 0,
+            tags: [],
+            created_at: entry.publishedAt,
+            updated_at: now,
+          })
+        )
+      )
+      imported += results.filter(r => r.status === 'fulfilled').length
+      setImportProgress(Math.round(Math.min(i + BATCH, total) / total * 100))
     }
 
-    toast.success(`Imported ${imported} videos from "${channelData.name}"!`)
+    try { await updateChannel(savedChannel.id, { video_count: imported }) } catch { /* ok */ }
+
+    toast.success(`Imported ${imported} video${imported !== 1 ? 's' : ''} from "${channelData.name}"`)
     setSaving(false)
     navigate('/admin/channels')
   }
 
   return (
     <div className="max-w-2xl">
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-white">Import Channel</h1>
-        <p className="text-gray-500 text-sm mt-1">Paste a YouTube channel link — all videos will be imported automatically.</p>
+        <p className="text-gray-500 text-sm mt-1">Paste a YouTube channel link to import its latest videos.</p>
       </motion.div>
 
-      {/* URL Input */}
+      {/* API key status banner */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        className={`flex items-start gap-3 p-3.5 rounded-xl border mb-5 text-xs ${
+          hasApiKey
+            ? 'bg-emerald-500/8 border-emerald-500/20 text-emerald-400'
+            : 'bg-amber-500/8 border-amber-500/20 text-amber-400'
+        }`}
+      >
+        {hasApiKey
+          ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+          : <Key className="w-4 h-4 shrink-0 mt-0.5" />
+        }
+        <div>
+          {hasApiKey ? (
+            <p>YouTube API key detected — fast, reliable channel fetching enabled.</p>
+          ) : (
+            <>
+              <p className="font-medium mb-0.5">No YouTube API key found</p>
+              <p className="text-amber-400/70">
+                Add <code className="bg-amber-500/10 px-1 rounded">VITE_YOUTUBE_API_KEY</code> in your <code className="bg-amber-500/10 px-1 rounded">.env</code> file for reliable fetching.{' '}
+                <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">Get a free key →</a>
+              </p>
+            </>
+          )}
+        </div>
+      </motion.div>
+
+      {/* URL Input card */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         className="bg-[#0d0d14] border border-[#1e1e2e] rounded-2xl p-5 sm:p-6 mb-6"
       >
         <label className="block text-sm font-semibold text-gray-300 mb-3">Channel URL</label>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 flex-wrap">
           <span className="flex items-center gap-1.5 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full">
-            <Users className="w-3 h-3" /> All videos auto-imported
+            <Users className="w-3 h-3" /> Last 15 videos auto-imported
+          </span>
+          <span className="flex items-center gap-1.5 text-xs bg-[#6c63ff]/10 border border-[#6c63ff]/30 text-[#a78bfa] px-3 py-1 rounded-full font-semibold tracking-wide">
+            ✦ Coming Soon
           </span>
         </div>
 
@@ -242,9 +331,9 @@ export default function AddChannelPage() {
             <input
               type="url"
               value={url}
-              onChange={e => { setUrl(e.target.value); if (channelData) handleReset() }}
-              onKeyDown={e => e.key === 'Enter' && handleFetch()}
-              placeholder="youtube.com/@channelname  or  youtube.com/channel/UCxxxxx"
+              onChange={e => { setUrl(e.target.value); if (channelData || rssBlocked) handleReset() }}
+              onKeyDown={e => e.key === 'Enter' && !fetching && handleFetch()}
+              placeholder="youtube.com/@handle  or  youtube.com/channel/UCxxxxx"
               className="w-full bg-[#16161e] border border-[#1e1e2e] rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-[#6c63ff]/50 focus:ring-1 focus:ring-[#6c63ff]/20 transition-all"
             />
           </div>
@@ -254,32 +343,90 @@ export default function AddChannelPage() {
             className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-[#6c63ff] to-[#5b53ee] disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-all shadow-md shadow-[#6c63ff]/20 shrink-0"
           >
             {fetching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            <span className="hidden sm:inline">{fetching ? 'Fetching...' : 'Fetch'}</span>
+            <span className="hidden sm:inline">{fetching ? 'Fetching…' : 'Fetch'}</span>
           </motion.button>
         </div>
 
+        {fetchStatus && (
+          <p className="text-xs text-[#a78bfa]/80 mt-2.5 flex items-center gap-1.5">
+            <RefreshCw className="w-3 h-3 animate-spin shrink-0" /> {fetchStatus}
+          </p>
+        )}
+
         <p className="text-xs text-gray-700 mt-2.5">
           Supports: youtube.com/@handle · youtube.com/channel/UCxxxxx · youtube.com/c/name
-          <br />
-          <span className="text-amber-600/80">Tip: If @handle fails, use the youtube.com/channel/UC… URL directly.</span>
         </p>
       </motion.div>
+
+      {/* RSS blocked — actionable guidance */}
+      <AnimatePresence>
+        {rssBlocked && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-6 bg-[#0d0d14] border border-red-500/20 rounded-2xl p-5 space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-white mb-1">Channel fetch blocked</p>
+                <p className="text-xs text-gray-400">YouTube is blocking the CORS proxies from your network. Fix it with one of these options:</p>
+              </div>
+            </div>
+            <div className="space-y-2.5">
+              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
+                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">1</span>
+                <div>
+                  <p className="text-xs font-semibold text-white mb-0.5">Add a YouTube API key (recommended)</p>
+                  <p className="text-xs text-gray-500">
+                    Add <code className="bg-[#1e1e2e] px-1 rounded">VITE_YOUTUBE_API_KEY=AIza...</code> to <code className="bg-[#1e1e2e] px-1 rounded">.env</code> then restart dev server.{' '}
+                    <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-[#6c63ff] underline">Get free key</a>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
+                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">2</span>
+                <div>
+                  <p className="text-xs font-semibold text-white mb-0.5">Deploy the Supabase Edge Function</p>
+                  <p className="text-xs text-gray-500">
+                    Run <code className="bg-[#1e1e2e] px-1 rounded">supabase functions deploy fetch-channel-rss</code> — fetches RSS server-side, no CORS issues.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
+                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">3</span>
+                <div>
+                  <p className="text-xs font-semibold text-white mb-0.5">Use a direct channel ID URL</p>
+                  <p className="text-xs text-gray-500">
+                    Paste <code className="bg-[#1e1e2e] px-1 rounded">youtube.com/channel/UCxxxxx</code> format — more reliable than @handle.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Channel result + settings */}
       <AnimatePresence>
         {channelData && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             className="space-y-4"
           >
             {/* Channel card */}
             <div className="bg-[#0d0d14] border border-emerald-500/20 rounded-2xl p-5 sm:p-6">
               <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0 shadow-lg shadow-[#6c63ff]/20">
-                  <Users className="w-7 h-7 text-white" />
-                </div>
+                {channelData.thumbnailUrl ? (
+                  <img
+                    src={channelData.thumbnailUrl}
+                    alt={channelData.name}
+                    className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-lg shadow-[#6c63ff]/20"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0 shadow-lg shadow-[#6c63ff]/20">
+                    <Users className="w-7 h-7 text-white" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-lg font-bold text-white">{channelData.name}</h2>
@@ -287,9 +434,11 @@ export default function AddChannelPage() {
                       {channelData.videos.length} videos ready
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5 font-mono truncate">{channelData.channelId}</p>
-
-                  {/* Video thumbnails preview */}
+                  {channelData.handle && (
+                    <p className="text-xs text-gray-500 mt-0.5">{channelData.handle}</p>
+                  )}
+                  <p className="text-xs text-gray-600 font-mono truncate mt-0.5">{channelData.channelId}</p>
+                  {/* Thumbnail preview */}
                   <div className="flex gap-1.5 mt-3 flex-wrap">
                     {channelData.videos.slice(0, 6).map(v => (
                       <img
@@ -334,19 +483,11 @@ export default function AddChannelPage() {
               </div>
             </div>
 
-            {/* Note */}
-            <div className="flex items-start gap-2.5 p-4 bg-amber-500/8 border border-amber-500/15 rounded-xl">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-300/80 leading-relaxed">
-                Fetched from YouTube's public RSS feed — returns the ~15 most recent public videos. All {channelData.videos.length} will be imported.
-              </p>
-            </div>
-
             {/* Progress bar while importing */}
             {saving && (
               <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-400">Importing videos...</span>
+                  <span className="text-xs text-gray-400">Saving to database…</span>
                   <span className="text-xs text-[#a78bfa]">{importProgress}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-[#1e1e2e] rounded-full overflow-hidden">
@@ -367,9 +508,9 @@ export default function AddChannelPage() {
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 disabled:opacity-60 text-white py-3.5 rounded-xl font-semibold transition-all shadow-md shadow-emerald-600/20 text-sm"
             >
               {saving ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Importing {channelData.videos.length} videos...</>
+                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Importing {channelData.videos.length} videos…</>
               ) : (
-                <><Download className="w-4 h-4" /> Import All {channelData.videos.length} Videos</>
+                <><Download className="w-4 h-4" /> Import {channelData.videos.length} Videos</>
               )}
             </motion.button>
           </motion.div>

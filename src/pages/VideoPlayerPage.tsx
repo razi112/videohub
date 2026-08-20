@@ -1,17 +1,37 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Heart, Share2, ExternalLink, ArrowLeft, Eye, Calendar, Tag } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useStore } from '../store/useStore'
 import VideoCard from '../components/ui/VideoCard'
 import { getEmbedUrl, getWatchUrl } from '../lib/youtube'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
+
+/**
+ * Check if a YouTube video allows embedding by calling the oEmbed endpoint.
+ * Returns true if embeddable, false if restricted.
+ */
+async function checkEmbeddable(videoId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+    )
+    return res.ok
+  } catch {
+    return true // assume embeddable on network error
+  }
+}
 
 export default function VideoPlayerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const autoplay = searchParams.get('autoplay') === '1'
   const { videos, toggleFavorite, isFavorite, updateVideo } = useStore()
-  const [embedError, setEmbedError] = useState(false)
+  // 'checking' | 'ok' | 'blocked'
+  const [embedStatus, setEmbedStatus] = useState<'checking' | 'ok' | 'blocked'>('checking')
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const loadedRef = useRef(false)
 
   const video = useMemo(() => videos.find((v) => v.id === id), [videos, id])
   const relatedVideos = useMemo(() =>
@@ -20,6 +40,33 @@ export default function VideoPlayerPage() {
       .slice(0, 6),
     [videos, id, video]
   )
+
+  // Check embeddability before showing iframe
+  useEffect(() => {
+    if (!video) return
+    setEmbedStatus('checking')
+    loadedRef.current = false
+    checkEmbeddable(video.youtube_video_id).then(ok => {
+      setEmbedStatus(ok ? 'ok' : 'blocked')
+    })
+  }, [video?.youtube_video_id])
+
+  // Listen for YouTube postMessage errors (e.g. video removed / private)
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (!e.origin.includes('youtube')) return
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+        // playerError event: 100 = not found, 101/150 = embedding not allowed
+        if (data?.event === 'infoDelivery' && data?.info?.playerState === 0) return
+        if (data?.event === 'onError' || (data?.info?.error && [100, 101, 150].includes(data.info.error))) {
+          setEmbedStatus('blocked')
+        }
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
   if (!video) {
     return (
@@ -45,8 +92,11 @@ export default function VideoPlayerPage() {
     toast.success('Link copied!')
   }
 
-  const handleLoad = () => {
-    updateVideo(video.id, { views: video.views + 1 })
+  const handleIframeLoad = () => {
+    if (!loadedRef.current) {
+      loadedRef.current = true
+      updateVideo(video.id, { views: video.views + 1 })
+    }
   }
 
   return (
@@ -61,7 +111,7 @@ export default function VideoPlayerPage() {
         Back
       </button>
 
-      <div className="flex flex-col xl:flex-row gap-6 lg:gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
 
         {/* ── Main ── */}
         <div className="flex-1 min-w-0">
@@ -72,31 +122,42 @@ export default function VideoPlayerPage() {
             animate={{ opacity: 1, y: 0 }}
             className="rounded-xl sm:rounded-2xl overflow-hidden bg-black border border-[#2a2a3a] shadow-2xl shadow-black/50 w-full"
           >
-            {!embedError ? (
-              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                <iframe
-                  src={getEmbedUrl(video.youtube_video_id, { rel: false })}
-                  title={video.title}
-                  className="absolute inset-0 w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  onLoad={handleLoad}
-                  onError={() => setEmbedError(true)}
+            {embedStatus === 'blocked' ? (
+              /* Embed restricted — show a nice fallback */
+              <div className="aspect-video flex flex-col items-center justify-center bg-[#0d0d14] text-gray-400 px-4 text-center gap-4">
+                <div
+                  className="w-20 h-20 rounded-2xl bg-cover bg-center opacity-30 mb-1"
+                  style={{ backgroundImage: `url(${video.thumbnail_url})` }}
                 />
-              </div>
-            ) : (
-              <div className="aspect-video flex flex-col items-center justify-center bg-[#111118] text-gray-500 px-4 text-center">
-                <p className="text-base sm:text-lg font-semibold mb-2">⚠️ Video unavailable</p>
-                <p className="text-xs sm:text-sm mb-4">This video cannot be played here.</p>
+                <div>
+                  <p className="text-base sm:text-lg font-semibold text-white mb-1">Embedding disabled</p>
+                  <p className="text-xs sm:text-sm text-gray-500">The video owner has disabled playback on external sites.</p>
+                </div>
                 <a
                   href={getWatchUrl(video.youtube_video_id)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm transition-colors"
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-900/30"
                 >
                   <ExternalLink className="w-4 h-4 shrink-0" />
                   Watch on YouTube
                 </a>
+              </div>
+            ) : (
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                {/* Skeleton while checking */}
+                {embedStatus === 'checking' && (
+                  <div className="absolute inset-0 bg-[#0d0d14] animate-pulse" />
+                )}
+                <iframe
+                  ref={iframeRef}
+                  src={embedStatus !== 'checking' ? getEmbedUrl(video.youtube_video_id, { rel: false, autoplay, mute: autoplay }) : undefined}
+                  title={video.title}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                  onLoad={handleIframeLoad}
+                />
               </div>
             )}
           </motion.div>
@@ -189,12 +250,12 @@ export default function VideoPlayerPage() {
         </div>
 
         {/* ── Related Videos ── */}
-        <div className="xl:w-80 shrink-0 min-w-0">
+        <div className="lg:w-72 xl:w-80 shrink-0 min-w-0">
           <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Related Videos</h3>
           {relatedVideos.length === 0 ? (
             <p className="text-gray-500 text-sm">No related videos found.</p>
           ) : (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-3 sm:gap-4">
               {relatedVideos.map((v) => (
                 <VideoCard key={v.id} video={v} />
               ))}

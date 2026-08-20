@@ -19,15 +19,16 @@ interface AppState {
 
   // Channels
   channels: Channel[]
-  addChannel: (channel: Channel) => void
-  updateChannel: (id: string, updates: Partial<Channel>) => void
-  deleteChannel: (id: string) => void
+  loadChannels: () => Promise<void>
+  addChannel: (channel: Omit<Channel, 'id' | 'created_at' | 'updated_at'>) => Promise<Channel>
+  updateChannel: (id: string, updates: Partial<Channel>) => Promise<void>
+  deleteChannel: (id: string) => Promise<void>
 
   // Categories
   setCategories: (cats: Category[]) => void
-  addCategory: (cat: Category) => void
-  updateCategory: (id: string, updates: Partial<Category>) => void
-  deleteCategory: (id: string) => void
+  addCategory: (cat: Omit<Category, 'id' | 'created_at'>) => Promise<void>
+  updateCategory: (id: string, updates: Partial<Category>) => Promise<void>
+  deleteCategory: (id: string) => Promise<void>
 
   // Data loading
   loadVideos: () => Promise<void>
@@ -110,13 +111,14 @@ export const useStore = create<AppState>()(
           views: video.views ?? 0,
           tags: video.tags ?? [],
           duration: video.duration || null,
+          ...(video.created_at ? { created_at: video.created_at } : {}),
         }
 
         const { data, error } = await supabase
           .from('videos')
-          .insert(payload)
+          .upsert(payload, { onConflict: 'youtube_video_id', ignoreDuplicates: true })
           .select('*, category:categories(*)')
-          .single()
+          .maybeSingle()
 
         if (error) {
           console.error('Error adding video:', error)
@@ -160,23 +162,132 @@ export const useStore = create<AppState>()(
         set((s) => ({ videos: s.videos.filter((v) => v.id !== id) }))
       },
 
-      // Channels (local only — no DB table in schema)
+      // Channels (persisted in Supabase)
       channels: [],
-      addChannel: (channel) => set((s) => ({ channels: [channel, ...s.channels] })),
-      updateChannel: (id, updates) =>
+
+      loadChannels: async () => {
+        const { data, error } = await supabase
+          .from('channels')
+          .select('*, category:categories(*)')
+          .order('created_at', { ascending: false })
+        // Silently ignore if table doesn't exist yet
+        if (!error && data) {
+          set({ channels: data as Channel[] })
+        }
+      },
+
+      addChannel: async (channel) => {
+        const payload = {
+          channel_id: channel.channel_id,
+          name: channel.name,
+          handle: channel.handle || null,
+          description: channel.description || null,
+          thumbnail_url: channel.thumbnail_url || null,
+          banner_url: channel.banner_url || null,
+          subscriber_count: channel.subscriber_count || null,
+          video_count: channel.video_count ?? 0,
+          channel_url: channel.channel_url,
+          category_id: channel.category_id || null,
+          tags: channel.tags ?? [],
+          status: channel.status,
+        }
+
+        const { data, error } = await supabase
+          .from('channels')
+          .upsert(payload, { onConflict: 'channel_id' })
+          .select('*, category:categories(*)')
+          .single()
+
+        if (error) {
+          console.error('Error adding channel:', error)
+          // Fall back to local-only if table doesn't exist (42P01) or RLS blocks it
+          if (error.code === '42P01' || error.code === '42501' || error.message?.includes('channels')) {
+            const localChannel: Channel = {
+              id: `local_${Date.now()}`,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              ...channel,
+            }
+            set((s) => ({
+              channels: [localChannel, ...s.channels.filter((c) => c.channel_id !== localChannel.channel_id)],
+            }))
+            return localChannel
+          }
+          throw error
+        }
+        const saved = data as Channel
         set((s) => ({
-          channels: s.channels.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-        })),
-      deleteChannel: (id) => set((s) => ({ channels: s.channels.filter((c) => c.id !== id) })),
+          channels: [saved, ...s.channels.filter((c) => c.channel_id !== saved.channel_id)],
+        }))
+        return saved
+      },
+
+      updateChannel: async (id, updates) => {
+        const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        if (updates.name !== undefined) payload.name = updates.name
+        if (updates.status !== undefined) payload.status = updates.status
+        if (updates.category_id !== undefined) payload.category_id = updates.category_id || null
+        if (updates.thumbnail_url !== undefined) payload.thumbnail_url = updates.thumbnail_url
+        if (updates.video_count !== undefined) payload.video_count = updates.video_count
+        if (updates.description !== undefined) payload.description = updates.description
+        if (updates.tags !== undefined) payload.tags = updates.tags
+
+        const { data, error } = await supabase
+          .from('channels')
+          .update(payload)
+          .eq('id', id)
+          .select('*, category:categories(*)')
+          .single()
+
+        if (error) { console.error('Error updating channel:', error); throw error }
+        if (data) {
+          set((s) => ({
+            channels: s.channels.map((c) => (c.id === id ? (data as Channel) : c)),
+          }))
+        }
+      },
+
+      deleteChannel: async (id) => {
+        const { error } = await supabase.from('channels').delete().eq('id', id)
+        if (error) { console.error('Error deleting channel:', error); throw error }
+        set((s) => ({ channels: s.channels.filter((c) => c.id !== id) }))
+      },
 
       // Categories
       setCategories: (cats) => set({ categories: cats }),
-      addCategory: (cat) => set((s) => ({ categories: [...s.categories, cat] })),
-      updateCategory: (id, updates) =>
-        set((s) => ({
-          categories: s.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-        })),
-      deleteCategory: (id) => set((s) => ({ categories: s.categories.filter((c) => c.id !== id) })),
+      addCategory: async (cat) => {
+        const payload = {
+          name: cat.name,
+          slug: cat.slug,
+          description: cat.description || null,
+        }
+        const { data, error } = await supabase
+          .from('categories')
+          .insert(payload)
+          .select('*')
+          .single()
+        if (error) { console.error('Error adding category:', error); throw error }
+        if (data) set((s) => ({ categories: [...s.categories, data as Category] }))
+      },
+      updateCategory: async (id, updates) => {
+        const payload: Record<string, unknown> = {}
+        if (updates.name !== undefined) payload.name = updates.name
+        if (updates.slug !== undefined) payload.slug = updates.slug
+        if (updates.description !== undefined) payload.description = updates.description || null
+        const { data, error } = await supabase
+          .from('categories')
+          .update(payload)
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (error) { console.error('Error updating category:', error); throw error }
+        if (data) set((s) => ({ categories: s.categories.map((c) => (c.id === id ? (data as Category) : c)) }))
+      },
+      deleteCategory: async (id) => {
+        const { error } = await supabase.from('categories').delete().eq('id', id)
+        if (error) { console.error('Error deleting category:', error); throw error }
+        set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }))
+      },
 
       // Favorites (local per-user)
       favorites: [],
@@ -248,7 +359,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'videohub-storage',
-      version: 2, // bumped — clears old localStorage with mock video data
+      version: 3, // bumped — channels moved from localStorage to Supabase
       // Only persist user-specific local data, NOT videos/categories (those come from Supabase)
       partialize: (s) => ({
         favorites: s.favorites,
@@ -256,7 +367,6 @@ export const useStore = create<AppState>()(
         currentUser: s.currentUser,
         isAdmin: s.isAdmin,
         darkMode: s.darkMode,
-        channels: s.channels,
       }),
     }
   )
