@@ -113,32 +113,26 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
             </p>
           </motion.div>
 
-          {/* Duration badge — liquid glass */}
+          {/* Duration badge — liquid glass, always visible */}
           {video.duration && (
-            <motion.div
-              variants={{
-                hover: {
-                  background: 'rgba(255,255,255,0.18)',
-                  borderColor: 'rgba(255,255,255,0.32)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.1)',
-                  color: 'rgba(255,255,255,1)',
-                  scale: 1.06,
-                  y: -1,
-                },
-              }}
-              transition={{ duration: 0.22 }}
-              className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-white/85 px-2 py-[3px] rounded-lg select-none"
+            <div
+              className="absolute bottom-2 right-2 z-10 flex items-center gap-1 text-[11px] font-semibold tracking-wide select-none
+                         transition-all duration-200
+                         group-hover:scale-105 group-hover:-translate-y-px"
               style={{
-                background: 'rgba(0,0,0,0.52)',
-                backdropFilter: 'blur(16px) saturate(200%)',
-                WebkitBackdropFilter: 'blur(16px) saturate(200%)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.92)',
+                background: 'rgba(8,8,16,0.72)',
+                backdropFilter: 'blur(20px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                border: '1px solid rgba(255,255,255,0.18)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(0,0,0,0.2)',
+                borderRadius: '8px',
+                padding: '2px 7px 3px',
               }}
             >
-              {song && <span className="text-[12px] leading-none opacity-80">♪</span>}
+              {song && <span className="text-[11px] leading-none mr-0.5 opacity-75">♪</span>}
               {video.duration}
-            </motion.div>
+            </div>
           )}
 
           {/* Featured badge */}
