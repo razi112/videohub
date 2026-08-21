@@ -113,28 +113,30 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
             </p>
           </motion.div>
 
-          {/* Duration badge */}
+          {/* Duration badge — liquid glass */}
           {video.duration && (
             <motion.div
               variants={{
                 hover: {
-                  background: 'rgba(255,255,255,0.13)',
-                  border: '1px solid rgba(255,255,255,0.26)',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.22)',
+                  background: 'rgba(255,255,255,0.18)',
+                  borderColor: 'rgba(255,255,255,0.32)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.1)',
                   color: 'rgba(255,255,255,1)',
                   scale: 1.06,
+                  y: -1,
                 },
               }}
-              transition={{ duration: 0.25 }}
-              className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-white/75 px-2 py-0.5 rounded-lg"
+              transition={{ duration: 0.22 }}
+              className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-white/85 px-2 py-[3px] rounded-lg select-none"
               style={{
-                background: 'rgba(0,0,0,0.58)',
-                backdropFilter: 'blur(12px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(12px) saturate(180%)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(0,0,0,0.52)',
+                backdropFilter: 'blur(16px) saturate(200%)',
+                WebkitBackdropFilter: 'blur(16px) saturate(200%)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.14)',
               }}
             >
-              {song && <span className="text-[13px] leading-none">♪</span>}
+              {song && <span className="text-[12px] leading-none opacity-80">♪</span>}
               {video.duration}
             </motion.div>
           )}

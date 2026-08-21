@@ -228,7 +228,6 @@ export default function AddChannelPage() {
         category: selectedCat,
         status: channelStatus,
         video_count: channelData.videos.length,
-        updated_at: now,
       })
     } catch {
       toast.error('Failed to save channel record')
@@ -258,6 +257,7 @@ export default function AddChannelPage() {
             is_featured: false,
             views: parseInt(entry.viewCount || '0') || 0,
             tags: [],
+            duration: entry.duration,
             created_at: entry.publishedAt,
             updated_at: now,
           })

@@ -99,6 +99,38 @@ export function getChannelRssUrl(channelId: string): string {
   return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
 }
 
+// ─── Duration helpers ────────────────────────────────────────────────────────
+
+/**
+ * Parse an ISO 8601 duration string (e.g. PT1M30S) into total seconds.
+ */
+function parseIsoDuration(iso: string): number {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+  if (!m) return 0
+  return (parseInt(m[1] ?? '0') * 3600) + (parseInt(m[2] ?? '0') * 60) + parseInt(m[3] ?? '0')
+}
+
+/**
+ * Converts total seconds → "H:MM:SS" or "MM:SS".
+ * e.g. 3661 → "1:01:01", 90 → "1:30"
+ */
+export function formatDuration(totalSeconds: number): string {
+  if (!totalSeconds || totalSeconds <= 0) return ''
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  const mm = String(m).padStart(h > 0 ? 2 : 1, '0')
+  const ss = String(s).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
+}
+
+/**
+ * Converts ISO 8601 duration string (PT1H2M3S) → "H:MM:SS" or "MM:SS".
+ */
+export function formatIsoDuration(iso: string): string {
+  return formatDuration(parseIsoDuration(iso))
+}
+
 // ─── RSS parsing ──────────────────────────────────────────────────────────────
 
 export interface RssVideoEntry {
@@ -108,6 +140,7 @@ export interface RssVideoEntry {
   thumbnailUrl: string
   publishedAt: string
   viewCount?: string
+  duration?: string   // formatted as "H:MM:SS" or "MM:SS"
 }
 
 export function parseChannelRss(xmlText: string): RssVideoEntry[] {
@@ -209,25 +242,21 @@ export async function resolveChannelIdViaApi(identifier: {
 }
 
 /**
- * Parse an ISO 8601 duration string (e.g. PT1M30S) into total seconds.
- */
-function parseIsoDuration(iso: string): number {
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-  if (!m) return 0
-  return (parseInt(m[1] ?? '0') * 3600) + (parseInt(m[2] ?? '0') * 60) + parseInt(m[3] ?? '0')
-}
-
-/**
  * Given a list of video IDs, return only the ones that:
  *  - have duration > 60s (not a Short)
  *  - have embeddable = true
  * Batches into groups of 50 (API limit).
  * Uses a single API call per batch (contentDetails + status parts).
+ * Also returns a duration map (videoId → formatted duration string).
  */
-async function filterVideos(videoIds: string[]): Promise<Set<string>> {
-  if (!YT_API_KEY || videoIds.length === 0) return new Set(videoIds)
+async function filterVideos(videoIds: string[]): Promise<{ valid: Set<string>; durations: Map<string, string> }> {
+  if (!YT_API_KEY || videoIds.length === 0) {
+    return { valid: new Set(videoIds), durations: new Map() }
+  }
 
   const valid = new Set<string>()
+  const durations = new Map<string, string>()
+
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50)
     const res = await fetch(
@@ -240,22 +269,25 @@ async function filterVideos(videoIds: string[]): Promise<Set<string>> {
     }
     const data = await res.json() as { items?: Array<Record<string, unknown>> }
     for (const item of data.items ?? []) {
-      const duration = (item.contentDetails as Record<string, unknown>)?.duration as string ?? ''
-      const seconds = parseIsoDuration(duration)
+      const isoStr = (item.contentDetails as Record<string, unknown>)?.duration as string ?? ''
+      const seconds = parseIsoDuration(isoStr)
       const embeddable = (item.status as Record<string, unknown>)?.embeddable
       if (seconds > 60 && embeddable !== false) {
-        valid.add(item.id as string)
+        const id = item.id as string
+        valid.add(id)
+        const fmt = formatDuration(seconds)
+        if (fmt) durations.set(id, fmt)
       }
     }
   }
-  return valid
+  return { valid, durations }
 }
 
 /**
  * @deprecated Use filterVideos instead (checks both duration and embeddability).
  * Kept for backward compatibility with filterOutShortsFromRss.
  */
-async function filterOutShorts(videoIds: string[]): Promise<Set<string>> {
+async function filterOutShorts(videoIds: string[]): Promise<{ valid: Set<string>; durations: Map<string, string> }> {
   return filterVideos(videoIds)
 }
 
@@ -309,36 +341,39 @@ export async function fetchChannelVideosViaApi(channelId: string, maxResults = 1
     pageToken = playlistData.nextPageToken
 
     // Build candidate entries from this page
-    const candidates: RssVideoEntry[] = items
-      .map((item) => {
+    const candidates: RssVideoEntry[] = (items
+      .map((item): RssVideoEntry | null => {
         const snippet = item.snippet as Record<string, unknown>
         const contentDetails = item.contentDetails as Record<string, unknown>
-        const videoId = contentDetails?.videoId as string
-          || (snippet?.resourceId as Record<string, unknown>)?.videoId as string
+        const videoId = (contentDetails?.videoId as string)
+          || ((snippet?.resourceId as Record<string, unknown>)?.videoId as string)
           || ''
         if (!videoId) return null
         const thumbnails = snippet?.thumbnails as Record<string, Record<string, unknown>>
         const thumb = thumbnails?.high || thumbnails?.medium || thumbnails?.default
-        const publishedAt = snippet?.videoPublishedAt as string
-          || snippet?.publishedAt as string
+        const publishedAt = (snippet?.videoPublishedAt as string)
+          || (snippet?.publishedAt as string)
           || new Date().toISOString()
         return {
           videoId,
-          title: snippet?.title as string || '',
-          description: snippet?.description as string || '',
-          thumbnailUrl: thumb?.url as string || getThumbnailUrl(videoId, 'high'),
+          title: (snippet?.title as string) || '',
+          description: (snippet?.description as string) || '',
+          thumbnailUrl: (thumb?.url as string) || getThumbnailUrl(videoId, 'high'),
           publishedAt,
           viewCount: undefined,
-        } satisfies RssVideoEntry
+          duration: undefined,
+        }
       })
-      .filter((v): v is RssVideoEntry => v !== null && v.videoId !== '')
+      .filter((v): v is RssVideoEntry => v !== null && v.videoId !== ''))
 
     if (candidates.length === 0) break
 
     // Step 3: filter out Shorts by checking durations
     const ids = candidates.map(v => v.videoId)
-    const notShorts = await filterOutShorts(ids)
-    const nonShortCandidates = candidates.filter(v => notShorts.has(v.videoId))
+    const { valid: notShorts, durations } = await filterOutShorts(ids)
+    const nonShortCandidates = candidates
+      .filter(v => notShorts.has(v.videoId))
+      .map(v => ({ ...v, duration: durations.get(v.videoId) }))
 
     const needed = maxResults - collected.length
     collected.push(...nonShortCandidates.slice(0, needed))
@@ -352,7 +387,8 @@ export async function fetchChannelVideosViaApi(channelId: string, maxResults = 1
 
 /**
  * Given a list of RSS video entries, return only non-Shorts that allow embedding.
- * - With API key: checks duration (> 60s) AND embeddable flag via YouTube Data API.
+ * - With API key: checks duration (> 60s) AND embeddable flag via YouTube Data API,
+ *   and attaches the formatted duration string to each entry.
  * - Without API key: falls back to title-based heuristics for Shorts only
  *   (cannot detect embedding restrictions without the API).
  */
@@ -361,8 +397,10 @@ export async function filterOutShortsFromRss(entries: RssVideoEntry[]): Promise<
 
   if (YT_API_KEY) {
     const ids = entries.map(e => e.videoId)
-    const valid = await filterVideos(ids)
-    return entries.filter(e => valid.has(e.videoId))
+    const { valid, durations } = await filterVideos(ids)
+    return entries
+      .filter(e => valid.has(e.videoId))
+      .map(e => ({ ...e, duration: durations.get(e.videoId) ?? e.duration }))
   }
 
   // No API key — filter by title heuristics (Shorts only; can't detect embedding blocks)
