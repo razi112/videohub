@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Play, Eye, Star, Clock } from 'lucide-react'
+import { Play, Eye, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Video } from '../../types'
 import { getThumbnailUrl } from '../../lib/youtube'
@@ -19,22 +19,37 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const SONG_TAGS = new Set(['music', 'song', 'audio', 'nasheed', 'qawwali', 'naat', 'track', 'album'])
+function isSong(video: Video): boolean {
+  return video.tags?.some(t => SONG_TAGS.has(t.toLowerCase())) ?? false
+}
+
 export default function VideoCard({ video, showCategory = true }: VideoCardProps) {
   const thumbnail = video.thumbnail_url || getThumbnailUrl(video.youtube_video_id, 'high')
+  const song = isSong(video)
 
   return (
     <motion.div
       initial={false}
       whileHover="hover"
-      className="group relative bg-[#16161e] rounded-2xl overflow-hidden border border-[#2a2a3a] cursor-pointer"
-      style={{ willChange: 'transform' }}
+      className="group relative rounded-2xl overflow-hidden cursor-pointer"
+      style={{
+        willChange: 'transform',
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+      }}
     >
+      {/* Top-edge gleam */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none z-10" />
+
       <Link to={`/videos/${video.id}?autoplay=1`} className="block">
 
         {/* ── Thumbnail ── */}
-        <div className="relative overflow-hidden aspect-video bg-[#0e0e16]">
+        <div className="relative overflow-hidden aspect-video bg-black/30">
 
-          {/* Image — zoom on hover */}
+          {/* Image */}
           <motion.img
             src={thumbnail}
             alt={video.title}
@@ -47,7 +62,7 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
             }}
           />
 
-          {/* Dark gradient — slides up from bottom */}
+          {/* Gradient overlay slides up on hover */}
           <motion.div
             variants={{ hover: { opacity: 1, y: 0 } }}
             initial={{ opacity: 0, y: 20 }}
@@ -55,7 +70,7 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
             className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"
           />
 
-          {/* Play button — pops in from center */}
+          {/* Play button */}
           <motion.div
             variants={{ hover: { opacity: 1, scale: 1, y: 0 } }}
             initial={{ opacity: 0, scale: 0.6, y: 6 }}
@@ -66,17 +81,27 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
               {/* Ripple ring */}
               <motion.div
                 variants={{ hover: { scale: 1.6, opacity: 0 } }}
-                initial={{ scale: 1, opacity: 0.4 }}
+                initial={{ scale: 1, opacity: 0.35 }}
                 transition={{ duration: 0.6, repeat: Infinity, ease: 'easeOut' }}
-                className="absolute inset-0 rounded-full bg-[#6c63ff]"
+                className="absolute inset-0 rounded-full bg-white/40"
               />
-              <div className="relative w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-2xl shadow-black/40">
+              {/* Glass play button */}
+              <div
+                className="relative w-12 h-12 rounded-full flex items-center justify-center shadow-2xl shadow-black/40"
+                style={{
+                  background: 'rgba(255,255,255,0.92)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255,255,255,0.5)',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9)',
+                }}
+              >
                 <Play className="w-5 h-5 text-[#6c63ff] fill-[#6c63ff] ml-0.5" />
               </div>
             </div>
           </motion.div>
 
-          {/* Bottom-left: title preview slides up */}
+          {/* Title preview slides up on hover */}
           <motion.div
             variants={{ hover: { opacity: 1, y: 0 } }}
             initial={{ opacity: 0, y: 10 }}
@@ -91,44 +116,65 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
           {/* Duration badge */}
           {video.duration && (
             <motion.div
-              variants={{ hover: { opacity: 0, scale: 0.8 } }}
-              initial={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.2 }}
-              className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1"
+              variants={{
+                hover: {
+                  background: 'rgba(255,255,255,0.13)',
+                  border: '1px solid rgba(255,255,255,0.26)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.22)',
+                  color: 'rgba(255,255,255,1)',
+                  scale: 1.06,
+                },
+              }}
+              transition={{ duration: 0.25 }}
+              className="absolute bottom-2 right-2 flex items-center gap-1 text-[11px] font-semibold tracking-wide text-white/75 px-2 py-0.5 rounded-lg"
+              style={{
+                background: 'rgba(0,0,0,0.58)',
+                backdropFilter: 'blur(12px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
             >
-              <Clock className="w-2.5 h-2.5" />
+              {song && <span className="text-[13px] leading-none">♪</span>}
               {video.duration}
             </motion.div>
           )}
 
           {/* Featured badge */}
           {video.is_featured && (
-            <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-              <Star className="w-2.5 h-2.5 fill-black" />
+            <div
+              className="absolute top-2 left-2 flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full shadow-md text-yellow-400"
+              style={{
+                background: 'rgba(0,0,0,0.55)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(234,179,8,0.3)',
+              }}
+            >
+              <Star className="w-2.5 h-2.5 fill-yellow-400" />
               Featured
             </div>
           )}
 
-          {/* Glowing border on hover */}
+          {/* Hover border gleam */}
           <motion.div
             variants={{ hover: { opacity: 1 } }}
             initial={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 rounded-t-2xl ring-1 ring-inset ring-[#6c63ff]/40 pointer-events-none"
+            className="absolute inset-0 rounded-t-2xl ring-1 ring-inset ring-white/20 pointer-events-none"
           />
         </div>
 
         {/* ── Info strip ── */}
         <motion.div
-          variants={{ hover: { backgroundColor: '#1a1a26' } }}
+          variants={{ hover: { background: 'rgba(255,255,255,0.07)' } }}
           transition={{ duration: 0.2 }}
-          className="p-3 sm:p-4 border-t border-[#2a2a3a]"
+          className="p-3 sm:p-4 border-t border-white/[0.07] relative"
         >
           {/* Title */}
           <motion.h3
-            variants={{ hover: { color: '#a78bfa' } }}
+            variants={{ hover: { color: '#c4b5fd' } }}
             transition={{ duration: 0.2 }}
-            className="text-white font-semibold text-xs sm:text-sm leading-snug line-clamp-2"
+            className="text-white/85 font-semibold text-xs sm:text-sm leading-snug line-clamp-2"
           >
             {video.title}
           </motion.h3>
@@ -140,23 +186,23 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
                 <motion.span
                   variants={{ hover: { color: '#a78bfa' } }}
                   transition={{ duration: 0.2 }}
-                  className="text-[10px] sm:text-xs text-[#6c63ff]/80 font-medium truncate shrink-0"
+                  className="text-[10px] sm:text-xs text-[#a78bfa]/70 font-medium truncate shrink-0"
                 >
                   {video.category.name}
                 </motion.span>
               )}
               {showCategory && video.category && (
-                <span className="text-gray-600 text-xs shrink-0">·</span>
+                <span className="text-white/20 text-xs shrink-0">·</span>
               )}
-              <span className="text-[10px] sm:text-xs text-gray-500 truncate">
+              <span className="text-[10px] sm:text-xs text-white/35 truncate">
                 {formatDate(video.created_at)}
               </span>
             </div>
 
             <motion.span
-              variants={{ hover: { color: '#e2e8f0' } }}
+              variants={{ hover: { color: 'rgba(255,255,255,0.7)' } }}
               transition={{ duration: 0.2 }}
-              className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-500 shrink-0"
+              className="flex items-center gap-1 text-[10px] sm:text-xs text-white/35 shrink-0"
             >
               <Eye className="w-3 h-3" />
               {formatViews(video.views)}

@@ -30,24 +30,24 @@ export default function AdminChannelsPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Channels</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{channels.length} imported channel{channels.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Channels</h1>
+          <p className="text-white/40 text-sm mt-0.5">{channels.length} imported channel{channels.length !== 1 ? 's' : ''}</p>
         </div>
         <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
           <Link to="/admin/channels/add"
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6c63ff] to-[#5b53ee] text-white rounded-xl text-sm font-medium shadow-md shadow-[#6c63ff]/20">
+            className="flex items-center gap-2 px-4 py-2 bg-white text-[#080810] rounded-full text-sm font-semibold shadow-lg shadow-white/10 hover:bg-white/90 transition-all">
             <Plus className="w-4 h-4" /> Import Channel
           </Link>
         </motion.div>
       </div>
 
       {channels.length === 0 ? (
-        <div className="text-center py-20 text-gray-600">
+        <div className="text-center py-20 text-white/25">
           <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p className="font-semibold text-gray-400 mb-2">No channels imported yet</p>
-          <p className="text-sm mb-6">Go to Add Video and paste a YouTube channel link.</p>
+          <p className="font-semibold text-white/40 mb-2">No channels imported yet</p>
+          <p className="text-sm mb-6">Go to Add Channel and paste a YouTube channel link.</p>
           <Link to="/admin/channels/add"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6c63ff] hover:bg-[#5b53ee] text-white rounded-xl text-sm font-medium transition-colors">
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#080810] rounded-full text-sm font-semibold shadow-lg shadow-white/10 hover:bg-white/90 transition-all">
             <Plus className="w-4 h-4" /> Import a Channel
           </Link>
         </div>
@@ -60,45 +60,45 @@ export default function AdminChannelsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               whileHover={{ y: -3 }}
-              className={`bg-[#0d0d14] rounded-2xl border overflow-hidden group ${
-                ch.status === 'published' ? 'border-[#1e1e2e]' : 'border-[#1e1e2e] opacity-60'
-              }`}
+              className={`relative glass rounded-2xl overflow-hidden group ${ch.status !== 'published' ? 'opacity-60' : ''}`}
             >
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+
               {/* Header */}
               <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0">
-                    <Users className="w-5 h-5 text-white" />
+                  <div className="relative w-11 h-11 rounded-xl shrink-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+                    <Users className="absolute inset-0 m-auto w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-white truncate">{ch.name}</p>
-                    {ch.handle && (
-                      <p className="text-xs text-gray-500">@{ch.handle}</p>
-                    )}
-                    <p className="text-xs text-gray-600 font-mono truncate mt-0.5">{ch.channel_id}</p>
+                    <p className="font-semibold text-sm text-white/90 truncate">{ch.name}</p>
+                    {ch.handle && <p className="text-xs text-white/35">@{ch.handle}</p>}
+                    <p className="text-xs text-white/20 font-mono truncate mt-0.5">{ch.channel_id}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full shrink-0 glass ${
                     ch.status === 'published'
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-amber-500/15 text-amber-400'
+                      ? 'text-emerald-400 border-emerald-500/25'
+                      : 'text-amber-400 border-amber-500/25'
                   }`}>
                     {ch.status}
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
-                  {ch.category && <span className="text-[#6c63ff]/70">{ch.category.name}</span>}
-                  <span>{ch.video_count ?? 0} videos imported</span>
+                <div className="mt-3 flex items-center gap-3 text-xs text-white/30">
+                  {ch.category && <span className="text-[#a78bfa]/70">{ch.category.name}</span>}
+                  <span>{ch.video_count ?? 0} videos</span>
                   <span>{new Date(ch.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1 px-4 py-3 border-t border-[#1e1e2e] bg-[#0a0a10]">
+              <div className="flex items-center gap-1.5 px-4 py-3 border-t border-white/[0.06]">
                 <motion.a
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   href={ch.channel_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#16161e] border border-[#2a2a3a] hover:border-[#6c63ff]/30 text-gray-400 hover:text-white rounded-lg text-xs transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 glass text-white/45 hover:text-white rounded-full text-xs transition-all"
                 >
                   <ExternalLink className="w-3 h-3" /> YouTube
                 </motion.a>
@@ -106,7 +106,7 @@ export default function AdminChannelsPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => handleToggle(ch.id, ch.status === 'published' ? 'draft' : 'published')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#16161e] border border-[#2a2a3a] hover:border-blue-500/30 text-gray-400 hover:text-blue-400 rounded-lg text-xs transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 glass text-white/45 hover:text-blue-400 rounded-full text-xs transition-all"
                   title={ch.status === 'published' ? 'Hide' : 'Publish'}
                 >
                   {ch.status === 'published'
@@ -117,7 +117,7 @@ export default function AdminChannelsPage() {
                 <motion.button
                   whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }}
                   onClick={() => handleDelete(ch.id)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/8 border border-red-500/15 text-red-400/70 hover:text-red-400 hover:bg-red-500/15 rounded-lg text-xs transition-all ml-auto"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 glass text-red-400/60 hover:text-red-400 hover:bg-red-500/15 rounded-full text-xs border border-red-500/15 transition-all ml-auto"
                 >
                   <Trash2 className="w-3 h-3" />
                 </motion.button>

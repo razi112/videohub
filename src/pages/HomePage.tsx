@@ -42,63 +42,56 @@ export default function HomePage() {
       {/* ── Hero ── */}
       {featuredVideo && !showFiltered && (
         <section className="relative overflow-hidden">
-          {/* Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff]/20 via-[#0a0a0f] to-[#0a0a0f]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#6c63ff22,_transparent_60%)]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#6c63ff]/10 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(108,99,255,0.18),transparent)] pointer-events-none" />
 
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-14 lg:py-20 w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-center">
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 lg:py-22 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
 
               {/* Text */}
-              <motion.div
-                initial={{ opacity: 0, x: -24 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.55 }}
-              >
-                <div className="inline-flex items-center gap-2 bg-[#6c63ff]/20 border border-[#6c63ff]/30 rounded-full px-3 py-1 sm:px-4 sm:py-1.5 text-xs sm:text-sm text-[#a78bfa] mb-4 sm:mb-6">
-                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+                <div className="inline-flex items-center gap-2 glass rounded-full px-3 py-1.5 text-xs text-[#a78bfa] mb-5">
+                  <Sparkles className="w-3 h-3 shrink-0" />
                   Featured Video
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-tight mb-3 sm:mb-4">
-                  Learn Something<br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6c63ff] to-[#a78bfa]">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-[1.12] mb-4 tracking-tight">
+                  Listen Something<br />
+                  <span className="bg-gradient-to-r from-[#a78bfa] via-[#6c63ff] to-[#a78bfa] bg-clip-text text-transparent">
                     New Today
                   </span>
                 </h1>
 
-                <p className="text-gray-400 text-base sm:text-lg mb-2 sm:mb-4 line-clamp-2">
-                  {featuredVideo.title}
-                </p>
-                <p className="text-gray-500 text-sm mb-6 sm:mb-8 line-clamp-2 hidden sm:block">
-                  {featuredVideo.description}
-                </p>
+                <p className="text-white/50 text-base sm:text-lg mb-2 line-clamp-2">{featuredVideo.title}</p>
+                <p className="text-white/30 text-sm mb-8 line-clamp-2 hidden sm:block">{featuredVideo.description}</p>
 
                 <div className="flex flex-wrap gap-3">
-                  <Link
-                    to={`/videos/${featuredVideo.id}`}
-                    className="flex items-center gap-2 bg-[#6c63ff] hover:bg-[#5b53ee] text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all hover:shadow-lg hover:shadow-[#6c63ff]/30"
-                  >
-                    <Play className="w-4 h-4 fill-white shrink-0" />
-                    Watch Now
-                  </Link>
-                  <Link
-                    to="/videos"
-                    className="flex items-center gap-2 bg-[#16161e] border border-[#2a2a3a] hover:border-[#6c63ff]/40 text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all"
-                  >
-                    Explore Videos
-                    <ArrowRight className="w-4 h-4 shrink-0" />
-                  </Link>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Link
+                      to={`/videos/${featuredVideo.id}?autoplay=1`}
+                      className="flex items-center gap-2 bg-white text-[#080810] px-5 py-2.5 sm:px-6 sm:py-3 rounded-full font-semibold text-sm sm:text-base transition-all hover:bg-white/90 shadow-xl shadow-white/10"
+                    >
+                      <Play className="w-4 h-4 fill-current shrink-0" />
+                      Watch Now
+                    </Link>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Link
+                      to="/videos"
+                      className="flex items-center gap-2 glass rounded-full px-5 py-2.5 sm:px-6 sm:py-3 text-white/70 font-semibold text-sm sm:text-base hover:text-white hover:bg-white/10 transition-all"
+                    >
+                      Explore Videos
+                      <ArrowRight className="w-4 h-4 shrink-0" />
+                    </Link>
+                  </motion.div>
                 </div>
               </motion.div>
 
               {/* Video embed */}
-              <motion.div
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.55, delay: 0.15 }}
-              >
-                <div className="relative rounded-xl sm:rounded-2xl overflow-hidden border border-[#2a2a3a] shadow-2xl shadow-[#6c63ff]/10 aspect-video">
+              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }}>
+                <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden glass-strong shadow-2xl shadow-black/40 aspect-video">
+                  {/* Shine overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] to-transparent pointer-events-none z-10 rounded-2xl" />
                   <iframe
                     src={getEmbedUrl(featuredVideo.youtube_video_id, { rel: false })}
                     title={featuredVideo.title}
@@ -113,67 +106,53 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── Search + Filter ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="space-y-3 sm:space-y-4">
-          <CategoryFilter />
-        </div>
+      {/* ── Category filter ── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        <CategoryFilter />
       </section>
 
-      {/* ── Filtered results ── */}
-      {showFiltered ? (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
-          <h2 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6">
-            {searchQuery ? `Results for "${searchQuery}"` : 'Filtered Videos'}
-            <span className="ml-2 text-sm font-normal text-gray-500">({filteredVideos.length})</span>
-          </h2>
-          {filteredVideos.length === 0 ? (
-            <div className="text-center py-16 sm:py-20 text-gray-500">
-              <p className="text-3xl mb-2">🔍</p>
-              <p className="font-semibold text-gray-400">No videos found</p>
-              <p className="text-sm mt-1">Try different search terms or clear filters</p>
+      {/* ── Video grid ── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-14 sm:pb-20">
+        {showFiltered ? (
+          <>
+            <h2 className="text-base sm:text-lg font-semibold text-white/80 mb-5">
+              {searchQuery ? `Results for "${searchQuery}"` : 'Filtered Videos'}
+              <span className="ml-2 text-sm font-normal text-white/30">({filteredVideos.length})</span>
+            </h2>
+            {filteredVideos.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-4xl mb-3">🔍</p>
+                <p className="font-semibold text-white/50">No videos found</p>
+                <p className="text-sm mt-1 text-white/30">Try different search terms or clear filters</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {filteredVideos.map((v, i) => (
+                  <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+                    <VideoCard video={v} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base sm:text-lg font-semibold text-white/80">Latest Videos</h2>
+              <Link to="/videos" className="flex items-center gap-1 text-sm text-[#a78bfa] hover:text-white transition-colors shrink-0">
+                View all <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
-              {filteredVideos.map((v, i) => (
-                <motion.div
-                  key={v.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                >
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+              {latestVideos.map((v, i) => (
+                <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                   <VideoCard video={v} />
                 </motion.div>
               ))}
             </div>
-          )}
-        </section>
-      ) : (
-        /* ── Latest Videos ── */
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-white">Latest Videos</h2>
-            <Link
-              to="/videos"
-              className="flex items-center gap-1 text-sm text-[#6c63ff] hover:text-[#a78bfa] transition-colors shrink-0"
-            >
-              View all <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
-            {latestVideos.map((v, i) => (
-              <motion.div
-                key={v.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-              >
-                <VideoCard video={v} />
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
+          </>
+        )}
+      </section>
     </div>
   )
 }

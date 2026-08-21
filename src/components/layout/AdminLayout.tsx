@@ -45,7 +45,7 @@ export default function AdminLayout() {
   const handleLogout = () => setCurrentUser(null)
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex">
+    <div className="min-h-screen flex" style={{ background: 'var(--bg-primary)' }}>
 
       {/* ── Sidebar ── */}
       <AnimatePresence>
@@ -54,17 +54,24 @@ export default function AdminLayout() {
             initial={{ x: -280, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -280, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-            className="fixed top-0 left-0 bottom-0 z-40 w-64 bg-[#0d0d14] border-r border-[#1e1e2e] flex flex-col"
+            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+            className="fixed top-0 left-0 bottom-0 z-40 w-64 glass-strong border-r border-white/[0.07] flex flex-col"
           >
+            {/* Top gleam */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
             {/* Logo */}
-            <div className="h-16 flex items-center justify-between px-5 border-b border-[#1e1e2e] shrink-0">
+            <div className="h-16 flex items-center justify-between px-5 border-b border-white/[0.07] shrink-0">
               <motion.div whileHover={{ scale: 1.03 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
                 <Link to="/" className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] rounded-lg flex items-center justify-center shadow-md shadow-[#6c63ff]/30">
-                    <span className="text-white font-bold text-xs">V</span>
+                  <div className="relative w-8 h-8 shrink-0">
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] opacity-90" />
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent" />
+                    <span className="relative z-10 flex items-center justify-center w-full h-full text-white font-bold text-sm">V</span>
                   </div>
-                  <span className="text-white font-bold tracking-tight">Video<span className="text-[#6c63ff]">Hub</span></span>
+                  <span className="text-white font-semibold text-lg tracking-tight">
+                    Video<span className="text-[#a78bfa]">Hub</span>
+                  </span>
                 </Link>
               </motion.div>
               <motion.button
@@ -72,10 +79,10 @@ export default function AdminLayout() {
                 whileTap={{ scale: 0.9 }}
                 transition={{ duration: 0.2 }}
                 onClick={() => setSidebarOpen(false)}
-                className="p-1.5 text-gray-600 hover:text-white rounded-lg hover:bg-[#1e1e2e] transition-colors"
+                className="w-8 h-8 glass rounded-full flex items-center justify-center text-white/40 hover:text-white transition-colors"
                 aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </motion.button>
             </div>
 
@@ -92,43 +99,38 @@ export default function AdminLayout() {
                   >
                     <Link to={item.href} className="block">
                       <motion.div
-                        whileHover={!active ? { x: 4, backgroundColor: '#16161e' } : {}}
+                        whileHover={!active ? { x: 3 } : {}}
                         whileTap={{ scale: 0.97 }}
-                        transition={{ duration: 0.18, ease: 'easeOut' }}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium relative overflow-hidden ${
+                        transition={{ duration: 0.18 }}
+                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors overflow-hidden ${
                           active
-                            ? 'bg-[#6c63ff]/15 text-[#a78bfa]'
-                            : 'text-gray-500'
+                            ? 'bg-white/10 text-white border border-white/15'
+                            : 'text-white/50 hover:text-white/80 hover:bg-white/[0.05] border border-transparent'
                         }`}
                       >
-                        {/* Active indicator bar */}
+                        {/* Active inner top gleam */}
+                        {active && (
+                          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none rounded-xl" />
+                        )}
+                        {/* Active left bar */}
                         {active && (
                           <motion.div
                             layoutId="activeNav"
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#6c63ff] rounded-full"
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-gradient-to-b from-[#a78bfa] to-[#6c63ff] rounded-full"
+                            style={{ boxShadow: '0 0 8px rgba(108,99,255,0.7)' }}
                             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           />
                         )}
-                        <motion.div
-                          animate={{ color: active ? '#a78bfa' : undefined }}
-                          whileHover={{ rotate: active ? 0 : [0, -8, 8, 0] }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <item.icon className="w-4 h-4 shrink-0" />
-                        </motion.div>
-                        <span className={active ? 'text-[#a78bfa]' : ''}>{item.label}</span>
+                        <item.icon className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
                         {item.comingSoon && !active && (
-                          <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#6c63ff]/15 text-[#a78bfa] border border-[#6c63ff]/25 leading-none">
+                          <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full glass text-[#a78bfa] border border-[#6c63ff]/25 leading-none">
                             Soon
                           </span>
                         )}
                         {active && (
-                          <motion.div
-                            initial={{ opacity: 0, x: -4 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="ml-auto"
-                          >
-                            <ChevronRight className="w-3.5 h-3.5 text-[#6c63ff]/60" />
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ml-auto">
+                            <ChevronRight className="w-3.5 h-3.5 text-white/30" />
                           </motion.div>
                         )}
                       </motion.div>
@@ -139,13 +141,13 @@ export default function AdminLayout() {
             </nav>
 
             {/* Logout */}
-            <div className="p-4 border-t border-[#1e1e2e] shrink-0">
+            <div className="p-3 border-t border-white/[0.07] shrink-0">
               <motion.button
-                whileHover={{ x: 3, color: '#f87171' }}
+                whileHover={{ x: 3 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ duration: 0.18 }}
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-red-500/8 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -163,46 +165,47 @@ export default function AdminLayout() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
       </AnimatePresence>
 
       {/* ── Main ── */}
-      <div className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-280 ${sidebarOpen ? 'lg:ml-64' : ''}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-64' : ''}`}>
 
         {/* Top bar */}
-        <header className="sticky top-0 z-20 h-14 sm:h-16 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-[#1e1e2e] flex items-center gap-3 px-3 sm:px-5">
+        <header className="sticky top-0 z-20 glass-strong border-b border-white/[0.07] h-16 flex items-center gap-3 px-4 sm:px-6">
+          {/* Top gleam */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+
           <motion.button
-            whileHover={{ scale: 1.08, backgroundColor: '#16161e' }}
+            whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             transition={{ duration: 0.15 }}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 text-gray-400 rounded-lg transition-colors shrink-0"
+            className="w-9 h-9 glass rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors shrink-0"
             aria-label="Toggle sidebar"
           >
-            <motion.div
-              animate={{ rotate: sidebarOpen ? 0 : 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Menu className="w-5 h-5" />
-            </motion.div>
+            <Menu className="w-4 h-4" />
           </motion.button>
 
-          <span className="text-white font-semibold text-sm sm:text-base truncate">Admin Dashboard</span>
+          <span className="text-white font-semibold text-sm sm:text-base tracking-tight truncate">Admin Dashboard</span>
 
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <motion.div whileHover={{ x: -2 }} transition={{ duration: 0.15 }}>
-              <Link to="/" className="text-xs sm:text-sm text-gray-500 hover:text-[#a78bfa] transition-colors whitespace-nowrap flex items-center gap-1">
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Link
+                to="/"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-white/50 text-sm font-medium hover:text-white hover:bg-white/10 transition-all"
+              >
                 ← View Site
               </Link>
             </motion.div>
             <motion.button
-              whileHover={{ scale: 1.1, color: '#f87171' }}
+              whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleLogout}
-              className="sm:hidden p-2 text-gray-500 rounded-lg hover:bg-red-500/10 transition-colors"
+              className="sm:hidden w-9 h-9 glass rounded-full flex items-center justify-center text-white/40 hover:text-red-400 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </motion.button>
@@ -217,7 +220,14 @@ export default function AdminLayout() {
       <Toaster
         position="bottom-right"
         toastOptions={{
-          style: { background: '#16161e', color: '#f1f1f1', border: '1px solid #2a2a3a', fontSize: '14px', borderRadius: '12px' },
+          style: {
+            background: 'rgba(15,15,26,0.85)',
+            backdropFilter: 'blur(24px)',
+            color: '#f0f0ff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            fontSize: '14px',
+            borderRadius: '14px',
+          },
         }}
       />
     </div>

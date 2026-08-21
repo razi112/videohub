@@ -7,13 +7,13 @@ export default function SearchBar({ className = '' }: { className?: string }) {
 
   return (
     <div className={`relative ${className}`}>
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
       <input
         type="text"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search videos..."
-        className="w-full bg-[#16161e] border border-[#2a2a3a] rounded-xl pl-11 pr-10 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6c63ff]/60 focus:ring-1 focus:ring-[#6c63ff]/30 transition-all"
+        className="w-full glass rounded-full pl-10 pr-10 py-2.5 text-sm text-white/80 placeholder-white/25 focus:outline-none focus:border-white/20 focus:bg-white/[0.07] transition-all"
       />
       <AnimatePresence>
         {searchQuery && (

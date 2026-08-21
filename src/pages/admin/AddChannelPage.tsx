@@ -14,7 +14,7 @@ import {
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
-const inputCls = 'w-full bg-[#16161e] border border-[#2a2a3a] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#6c63ff]/60 focus:ring-1 focus:ring-[#6c63ff]/30 transition-all'
+const inputCls = 'w-full glass rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#6c63ff]/50 focus:ring-1 focus:ring-[#6c63ff]/20 transition-all'
 
 // ─── RSS fetch (no API key) ───────────────────────────────────────────────────
 // Priority: Supabase Edge Function → Vite dev proxy → public proxies (raced)
@@ -277,19 +277,18 @@ export default function AddChannelPage() {
   return (
     <div className="max-w-2xl">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Import Channel</h1>
-        <p className="text-gray-500 text-sm mt-1">Paste a YouTube channel link to import its latest videos.</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Import Channel</h1>
+        <p className="text-white/40 text-sm mt-1">Paste a YouTube channel link to import its latest videos.</p>
       </motion.div>
 
       {/* API key status banner */}
       <motion.div
         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-        className={`flex items-start gap-3 p-3.5 rounded-xl border mb-5 text-xs ${
-          hasApiKey
-            ? 'bg-emerald-500/8 border-emerald-500/20 text-emerald-400'
-            : 'bg-amber-500/8 border-amber-500/20 text-amber-400'
+        className={`relative flex items-start gap-3 p-3.5 glass rounded-xl border mb-5 text-xs overflow-hidden ${
+          hasApiKey ? 'border-emerald-500/20 text-emerald-400' : 'border-amber-500/20 text-amber-400'
         }`}
       >
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
         {hasApiKey
           ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           : <Key className="w-4 h-4 shrink-0 mt-0.5" />
@@ -300,9 +299,9 @@ export default function AddChannelPage() {
           ) : (
             <>
               <p className="font-medium mb-0.5">No YouTube API key found</p>
-              <p className="text-amber-400/70">
-                Add <code className="bg-amber-500/10 px-1 rounded">VITE_YOUTUBE_API_KEY</code> in your <code className="bg-amber-500/10 px-1 rounded">.env</code> file for reliable fetching.{' '}
-                <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">Get a free key →</a>
+              <p className="opacity-70">
+                Add <code className="glass px-1 rounded">VITE_YOUTUBE_API_KEY</code> in your <code className="glass px-1 rounded">.env</code> for reliable fetching.{' '}
+                <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100">Get a free key →</a>
               </p>
             </>
           )}
@@ -312,35 +311,35 @@ export default function AddChannelPage() {
       {/* URL Input card */}
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-[#0d0d14] border border-[#1e1e2e] rounded-2xl p-5 sm:p-6 mb-6"
+        className="relative glass rounded-2xl p-5 sm:p-6 mb-6 overflow-hidden"
       >
-        <label className="block text-sm font-semibold text-gray-300 mb-3">Channel URL</label>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+        <label className="block text-sm font-semibold text-white/70 mb-3">Channel URL</label>
 
         <div className="flex gap-2 mb-4 flex-wrap">
-          <span className="flex items-center gap-1.5 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full">
+          <span className="flex items-center gap-1.5 text-xs glass text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/25">
             <Users className="w-3 h-3" /> Last 15 videos auto-imported
           </span>
-          <span className="flex items-center gap-1.5 text-xs bg-[#6c63ff]/10 border border-[#6c63ff]/30 text-[#a78bfa] px-3 py-1 rounded-full font-semibold tracking-wide">
+          <span className="flex items-center gap-1.5 text-xs glass text-[#a78bfa] px-3 py-1 rounded-full border border-[#6c63ff]/25 font-semibold">
             ✦ Coming Soon
           </span>
         </div>
 
         <div className="flex gap-2 sm:gap-3">
           <div className="relative flex-1">
-            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
             <input
-              type="url"
-              value={url}
+              type="url" value={url}
               onChange={e => { setUrl(e.target.value); if (channelData || rssBlocked) handleReset() }}
               onKeyDown={e => e.key === 'Enter' && !fetching && handleFetch()}
               placeholder="youtube.com/@handle  or  youtube.com/channel/UCxxxxx"
-              className="w-full bg-[#16161e] border border-[#1e1e2e] rounded-xl pl-10 pr-4 py-2.5 sm:py-3 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-[#6c63ff]/50 focus:ring-1 focus:ring-[#6c63ff]/20 transition-all"
+              className="w-full glass rounded-full pl-10 pr-4 py-2.5 sm:py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#6c63ff]/50 transition-all"
             />
           </div>
           <motion.button
             whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
             onClick={handleFetch} disabled={fetching || saving}
-            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-[#6c63ff] to-[#5b53ee] disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-all shadow-md shadow-[#6c63ff]/20 shrink-0"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-white text-[#080810] disabled:opacity-50 rounded-full text-sm font-semibold shadow-lg shadow-white/10 hover:bg-white/90 transition-all shrink-0"
           >
             {fetching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             <span className="hidden sm:inline">{fetching ? 'Fetching…' : 'Fetch'}</span>
@@ -352,55 +351,52 @@ export default function AddChannelPage() {
             <RefreshCw className="w-3 h-3 animate-spin shrink-0" /> {fetchStatus}
           </p>
         )}
-
-        <p className="text-xs text-gray-700 mt-2.5">
+        <p className="text-xs text-white/20 mt-2.5">
           Supports: youtube.com/@handle · youtube.com/channel/UCxxxxx · youtube.com/c/name
         </p>
       </motion.div>
 
-      {/* RSS blocked — actionable guidance */}
+      {/* RSS blocked */}
       <AnimatePresence>
         {rssBlocked && (
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mb-6 bg-[#0d0d14] border border-red-500/20 rounded-2xl p-5 space-y-4"
+            className="relative mb-6 glass rounded-2xl p-5 space-y-4 border border-red-500/20 overflow-hidden"
           >
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-400/20 to-transparent pointer-events-none" />
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-white mb-1">Channel fetch blocked</p>
-                <p className="text-xs text-gray-400">YouTube is blocking the CORS proxies from your network. Fix it with one of these options:</p>
+                <p className="text-xs text-white/40">YouTube is blocking CORS proxies. Fix it with one of these options:</p>
               </div>
             </div>
             <div className="space-y-2.5">
-              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
-                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">1</span>
-                <div>
-                  <p className="text-xs font-semibold text-white mb-0.5">Add a YouTube API key (recommended)</p>
-                  <p className="text-xs text-gray-500">
-                    Add <code className="bg-[#1e1e2e] px-1 rounded">VITE_YOUTUBE_API_KEY=AIza...</code> to <code className="bg-[#1e1e2e] px-1 rounded">.env</code> then restart dev server.{' '}
-                    <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-[#6c63ff] underline">Get free key</a>
-                  </p>
+              {[
+                {
+                  n: '1',
+                  title: 'Add a YouTube API key (recommended)',
+                  body: <>Add <code className="glass px-1 rounded">VITE_YOUTUBE_API_KEY=AIza…</code> to <code className="glass px-1 rounded">.env</code> then restart.{' '}<a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-[#a78bfa] underline">Get free key</a></>,
+                },
+                {
+                  n: '2',
+                  title: 'Deploy the Supabase Edge Function',
+                  body: <>Run <code className="glass px-1 rounded">supabase functions deploy fetch-channel-rss</code> — fetches RSS server-side.</>,
+                },
+                {
+                  n: '3',
+                  title: 'Use a direct channel ID URL',
+                  body: <>Paste <code className="glass px-1 rounded">youtube.com/channel/UCxxxxx</code> format — more reliable than @handle.</>,
+                },
+              ].map(item => (
+                <div key={item.n} className="flex items-start gap-3 p-3 glass rounded-xl">
+                  <span className="text-xs font-bold text-[#a78bfa] glass px-2 py-0.5 rounded shrink-0 mt-0.5 border border-[#6c63ff]/25">{item.n}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-white/80 mb-0.5">{item.title}</p>
+                    <p className="text-xs text-white/40">{item.body}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
-                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">2</span>
-                <div>
-                  <p className="text-xs font-semibold text-white mb-0.5">Deploy the Supabase Edge Function</p>
-                  <p className="text-xs text-gray-500">
-                    Run <code className="bg-[#1e1e2e] px-1 rounded">supabase functions deploy fetch-channel-rss</code> — fetches RSS server-side, no CORS issues.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-[#111118] rounded-xl border border-[#2a2a3a]">
-                <span className="text-xs font-bold text-[#6c63ff] bg-[#6c63ff]/10 px-2 py-0.5 rounded shrink-0 mt-0.5">3</span>
-                <div>
-                  <p className="text-xs font-semibold text-white mb-0.5">Use a direct channel ID URL</p>
-                  <p className="text-xs text-gray-500">
-                    Paste <code className="bg-[#1e1e2e] px-1 rounded">youtube.com/channel/UCxxxxx</code> format — more reliable than @handle.
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </motion.div>
         )}
@@ -414,67 +410,61 @@ export default function AddChannelPage() {
             className="space-y-4"
           >
             {/* Channel card */}
-            <div className="bg-[#0d0d14] border border-emerald-500/20 rounded-2xl p-5 sm:p-6">
+            <div className="relative glass rounded-2xl p-5 sm:p-6 border border-emerald-500/20 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent pointer-events-none" />
               <div className="flex items-start gap-4">
                 {channelData.thumbnailUrl ? (
-                  <img
-                    src={channelData.thumbnailUrl}
-                    alt={channelData.name}
-                    className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-lg shadow-[#6c63ff]/20"
-                  />
+                  <img src={channelData.thumbnailUrl} alt={channelData.name}
+                    className="w-14 h-14 rounded-xl object-cover shrink-0 border border-white/[0.08]" />
                 ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0 shadow-lg shadow-[#6c63ff]/20">
-                    <Users className="w-7 h-7 text-white" />
+                  <div className="relative w-14 h-14 rounded-2xl overflow-hidden shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff] to-[#a78bfa]" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+                    <Users className="absolute inset-0 m-auto w-7 h-7 text-white" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-lg font-bold text-white">{channelData.name}</h2>
-                    <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <h2 className="text-base font-bold text-white">{channelData.name}</h2>
+                    <span className="text-xs glass text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/25">
                       {channelData.videos.length} videos ready
                     </span>
                   </div>
-                  {channelData.handle && (
-                    <p className="text-xs text-gray-500 mt-0.5">{channelData.handle}</p>
-                  )}
-                  <p className="text-xs text-gray-600 font-mono truncate mt-0.5">{channelData.channelId}</p>
-                  {/* Thumbnail preview */}
+                  {channelData.handle && <p className="text-xs text-white/35 mt-0.5">{channelData.handle}</p>}
+                  <p className="text-xs text-white/20 font-mono truncate mt-0.5">{channelData.channelId}</p>
                   <div className="flex gap-1.5 mt-3 flex-wrap">
                     {channelData.videos.slice(0, 6).map(v => (
-                      <img
-                        key={v.videoId}
-                        src={v.thumbnailUrl}
-                        alt={v.title}
-                        className="w-14 h-9 object-cover rounded-md opacity-80"
-                        onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg` }}
-                      />
+                      <img key={v.videoId} src={v.thumbnailUrl} alt={v.title}
+                        className="w-14 h-9 object-cover rounded-lg opacity-75 border border-white/[0.07]"
+                        onError={e => { (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg` }} />
                     ))}
                     {channelData.videos.length > 6 && (
-                      <div className="w-14 h-9 rounded-md bg-[#16161e] border border-[#2a2a3a] flex items-center justify-center text-xs text-gray-500">
+                      <div className="w-14 h-9 rounded-lg glass flex items-center justify-center text-xs text-white/30">
                         +{channelData.videos.length - 6}
                       </div>
                     )}
                   </div>
                 </div>
-                <button onClick={handleReset} className="p-1.5 text-gray-600 hover:text-white transition-colors shrink-0">
+                <button onClick={handleReset} className="p-1.5 text-white/25 hover:text-white transition-colors shrink-0">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Settings */}
-            <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-2xl p-5 sm:p-6 space-y-4">
+            <div className="relative glass rounded-2xl p-5 sm:p-6 space-y-4 overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
               <h3 className="font-semibold text-white text-sm">Import Settings</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Category</label>
+                  <label className="block text-sm text-white/50 mb-2">Category</label>
                   <select value={channelCategoryId} onChange={e => setChannelCategoryId(e.target.value)} className={inputCls}>
                     <option value="">No Category</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Visibility</label>
+                  <label className="block text-sm text-white/50 mb-2">Visibility</label>
                   <select value={channelStatus} onChange={e => setChannelStatus(e.target.value as 'published' | 'draft')} className={inputCls}>
                     <option value="published">Published</option>
                     <option value="draft">Draft</option>
@@ -483,14 +473,15 @@ export default function AddChannelPage() {
               </div>
             </div>
 
-            {/* Progress bar while importing */}
+            {/* Progress bar */}
             {saving && (
-              <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-4">
+              <div className="relative glass rounded-xl p-4 overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-400">Saving to database…</span>
+                  <span className="text-xs text-white/40">Saving to database…</span>
                   <span className="text-xs text-[#a78bfa]">{importProgress}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-[#1e1e2e] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-gradient-to-r from-[#6c63ff] to-[#a78bfa] rounded-full"
                     animate={{ width: `${importProgress}%` }}
@@ -502,13 +493,12 @@ export default function AddChannelPage() {
 
             {/* Import button */}
             <motion.button
-              whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-              onClick={handleImport}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 disabled:opacity-60 text-white py-3.5 rounded-xl font-semibold transition-all shadow-md shadow-emerald-600/20 text-sm"
+              whileHover={{ scale: 1.01, y: -1 }} whileTap={{ scale: 0.98 }}
+              onClick={handleImport} disabled={saving}
+              className="w-full flex items-center justify-center gap-2 bg-white text-[#080810] disabled:opacity-60 py-3.5 rounded-full font-semibold shadow-lg shadow-white/10 hover:bg-white/90 transition-all text-sm"
             >
               {saving ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Importing {channelData.videos.length} videos…</>
+                <><span className="w-4 h-4 border-2 border-[#080810]/30 border-t-[#080810] rounded-full animate-spin" /> Importing {channelData.videos.length} videos…</>
               ) : (
                 <><Download className="w-4 h-4" /> Import {channelData.videos.length} Videos</>
               )}
