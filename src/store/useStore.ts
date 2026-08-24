@@ -33,6 +33,8 @@ interface AppState {
   // Data loading
   loadVideos: () => Promise<void>
   loadCategories: () => Promise<void>
+  videosLoading: boolean
+  videosError: string | null
 
   // Favorites
   favorites: Favorite[]
@@ -68,10 +70,14 @@ export const useStore = create<AppState>()(
       // Videos
       videos: [],
       categories: [],
+      videosLoading: false,
+      videosError: null,
       setVideos: (videos) => set({ videos }),
 
       loadVideos: async () => {
         const { isAdmin } = get()
+        set({ videosLoading: true, videosError: null })
+
         let query = supabase
           .from('videos')
           .select('*, category:categories(*)')
@@ -82,9 +88,12 @@ export const useStore = create<AppState>()(
         }
 
         const { data, error } = await query
-        if (!error && data) {
-          set({ videos: data as Video[] })
+        if (error) {
+          console.error('loadVideos error:', error.message, error.code)
+          set({ videosLoading: false, videosError: error.message })
+          return
         }
+        set({ videos: data as Video[], videosLoading: false, videosError: null })
       },
 
       loadCategories: async () => {
@@ -92,7 +101,11 @@ export const useStore = create<AppState>()(
           .from('categories')
           .select('*')
           .order('name')
-        if (!error && data) {
+        if (error) {
+          console.error('loadCategories error:', error.message, error.code)
+          return
+        }
+        if (data) {
           set({ categories: data as Category[] })
         }
       },

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Play, ArrowRight, Sparkles } from 'lucide-react'
+import { Play, ArrowRight, Sparkles, RefreshCw, WifiOff } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import VideoCard from '../components/ui/VideoCard'
@@ -8,7 +8,7 @@ import { getEmbedUrl } from '../lib/youtube'
 import { useMemo } from 'react'
 
 export default function HomePage() {
-  const { videos, selectedCategory, searchQuery } = useStore()
+  const { videos, selectedCategory, searchQuery, videosLoading, videosError, loadVideos } = useStore()
 
   const publishedVideos = useMemo(() => videos.filter((v) => v.status === 'published'), [videos])
   const featuredVideo = useMemo(() => publishedVideos.find((v) => v.is_featured), [publishedVideos])
@@ -143,13 +143,55 @@ export default function HomePage() {
                 View all <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {latestVideos.map((v, i) => (
-                <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                  <VideoCard video={v} />
-                </motion.div>
-              ))}
-            </div>
+
+            {/* Loading state */}
+            {videosLoading && (
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl overflow-hidden animate-pulse"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="aspect-video bg-white/5" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3 bg-white/8 rounded-full w-3/4" />
+                      <div className="h-3 bg-white/5 rounded-full w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Error state */}
+            {!videosLoading && videosError && (
+              <div className="text-center py-16">
+                <WifiOff className="w-10 h-10 text-white/20 mx-auto mb-3" />
+                <p className="font-semibold text-white/50 mb-1">Couldn't load videos</p>
+                <p className="text-xs text-white/30 mb-5">{videosError}</p>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={() => loadVideos()}
+                  className="flex items-center gap-2 mx-auto px-4 py-2 glass rounded-full text-sm text-white/60 hover:text-white transition-all">
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </motion.button>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!videosLoading && !videosError && latestVideos.length === 0 && (
+              <div className="text-center py-16">
+                <p className="text-4xl mb-3">🎬</p>
+                <p className="font-semibold text-white/50">No videos yet</p>
+                <p className="text-sm mt-1 text-white/30">Check back soon</p>
+              </div>
+            )}
+
+            {/* Video grid */}
+            {!videosLoading && !videosError && latestVideos.length > 0 && (
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {latestVideos.map((v, i) => (
+                  <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                    <VideoCard video={v} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </section>

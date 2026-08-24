@@ -83,20 +83,34 @@ export default function VideoPlayerPage() {
     checkEmbeddable(video.youtube_video_id).then(ok => setEmbedStatus(ok ? 'ok' : 'blocked'))
   }, [video?.youtube_video_id])
 
-  /* ── YouTube postMessage error listener ── */
+  /* ── YouTube postMessage: video end → next, errors → blocked ── */
   useEffect(() => {
+    if (audioMode) return // audio mode has its own player
     const handler = (e: MessageEvent) => {
       if (!e.origin.includes('youtube')) return
       try {
         const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+
+        // Detect embed errors
         if (data?.event === 'onError' || (data?.info?.error && [100, 101, 150].includes(data.info.error))) {
           setEmbedStatus('blocked')
+          return
+        }
+
+        // playerState 0 = ended → navigate to first related video
+        if (
+          (data?.event === 'infoDelivery' && data?.info?.playerState === 0) ||
+          (data?.event === 'onStateChange' && data?.info === 0)
+        ) {
+          if (relatedVideos.length > 0) {
+            navigate(`/videos/${relatedVideos[0].id}?autoplay=1`)
+          }
         }
       } catch { /* ignore */ }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
-  }, [])
+  }, [audioMode, relatedVideos, navigate])
 
   /* ── Init in-page YT player when audio mode turns on ── */
   useEffect(() => {
@@ -203,7 +217,23 @@ export default function VideoPlayerPage() {
   const handleFavorite = () => { toggleFavorite(video.id); toast.success(favorite ? 'Removed from saved' : 'Video saved!') }
   const handleShare = () => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied!') }
   const handleIframeLoad = () => {
-    if (!loadedRef.current) { loadedRef.current = true; updateVideo(video.id, { views: video.views + 1 }) }
+    if (!loadedRef.current) {
+      loadedRef.current = true
+      updateVideo(video.id, { views: video.views + 1 })
+    }
+    // Send unmute + set volume after iframe is ready so autoplay starts with sound
+    setTimeout(() => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+          '*'
+        )
+        iframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }),
+          '*'
+        )
+      } catch { /* ignore */ }
+    }, 800)
   }
 
   function toggleAudioMode() {
@@ -333,7 +363,12 @@ export default function VideoPlayerPage() {
                         boxShadow: '0 0 40px rgba(108,99,255,0.3), 0 8px 32px rgba(0,0,0,0.6)',
                       }}
                     >
-                      <img src={thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                      {/* Image fills the full circle regardless of thumbnail aspect ratio */}
+                      <img
+                        src={thumbnail}
+                        alt={video.title}
+                        className="absolute inset-0 w-full h-full object-cover rounded-full"
+                      />
                       {/* Centre hole */}
                       <div className="absolute inset-0 m-auto rounded-full" style={{ width: '22%', height: '22%', background: 'rgba(8,8,20,0.95)', border: '2px solid rgba(108,99,255,0.5)' }} />
                     </motion.div>
