@@ -2,7 +2,12 @@ import { Search, X } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function SearchBar({ className = '' }: { className?: string }) {
+interface SearchBarProps {
+  className?: string
+  onSearch?: () => void
+}
+
+export default function SearchBar({ className = '', onSearch }: SearchBarProps) {
   const { searchQuery, setSearchQuery } = useStore()
 
   return (
@@ -11,7 +16,10 @@ export default function SearchBar({ className = '' }: { className?: string }) {
       <input
         type="text"
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        onChange={(e) => {
+          setSearchQuery(e.target.value)
+          onSearch?.()
+        }}
         placeholder="Search videos..."
         className="w-full glass rounded-full pl-10 pr-10 py-2.5 text-sm text-white/80 placeholder-white/25 focus:outline-none focus:border-white/20 focus:bg-white/[0.07] transition-all"
       />

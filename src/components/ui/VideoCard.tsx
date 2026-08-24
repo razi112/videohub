@@ -78,25 +78,43 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
           >
             <div className="relative">
-              {/* Ripple ring */}
+              {/* Outer ripple ring — liquid glass tint */}
               <motion.div
-                variants={{ hover: { scale: 1.6, opacity: 0 } }}
-                initial={{ scale: 1, opacity: 0.35 }}
-                transition={{ duration: 0.6, repeat: Infinity, ease: 'easeOut' }}
-                className="absolute inset-0 rounded-full bg-white/40"
+                variants={{ hover: { scale: 1.7, opacity: 0 } }}
+                initial={{ scale: 1, opacity: 0.25 }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeOut' }}
+                className="absolute inset-0 rounded-full"
+                style={{ background: 'rgba(108,99,255,0.35)' }}
               />
-              {/* Glass play button */}
+              {/* Second softer ripple */}
+              <motion.div
+                variants={{ hover: { scale: 1.4, opacity: 0 } }}
+                initial={{ scale: 1, opacity: 0.15 }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeOut', delay: 0.2 }}
+                className="absolute inset-0 rounded-full"
+                style={{ background: 'rgba(167,139,250,0.3)' }}
+              />
+              {/* Liquid glass play button */}
               <div
-                className="relative w-12 h-12 rounded-full flex items-center justify-center shadow-2xl shadow-black/40"
+                className="relative w-13 h-13 rounded-full flex items-center justify-center"
                 style={{
-                  background: 'rgba(255,255,255,0.92)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255,255,255,0.5)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9)',
+                  width: '52px',
+                  height: '52px',
+                  background: 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  border: '1px solid rgba(255,255,255,0.35)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.15)',
                 }}
               >
-                <Play className="w-5 h-5 text-[#6c63ff] fill-[#6c63ff] ml-0.5" />
+                {/* Inner top-edge gleam */}
+                <div
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 55%)',
+                  }}
+                />
+                <Play className="relative z-10 w-5 h-5 text-white fill-white drop-shadow-lg ml-0.5" />
               </div>
             </div>
           </motion.div>

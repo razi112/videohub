@@ -3,21 +3,30 @@ import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
 import { Toaster } from 'react-hot-toast'
-import { Capacitor } from '@capacitor/core'
-
-const isAndroid = Capacitor.getPlatform() === 'android'
 
 export default function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      {!isAndroid && <Header />}
-      <main className={`flex-1${isAndroid ? ' pb-[76px]' : ''}`}>
+      {/* Header — hidden on mobile, visible on md+ */}
+      <div className="hidden md:block">
+        <Header />
+      </div>
+
+      {/* Main content — extra bottom padding on mobile so last card clears the bottom nav */}
+      <main className="flex-1 pb-[80px] md:pb-0">
         <Outlet />
       </main>
-      {!isAndroid && <Footer />}
-      {isAndroid && <BottomNav />}
+
+      {/* Footer — hidden on mobile, visible on md+ */}
+      <div className="hidden md:block">
+        <Footer />
+      </div>
+
+      {/* Bottom nav — visible only on mobile (md:hidden is inside BottomNav itself) */}
+      <BottomNav />
+
       <Toaster
-        position={isAndroid ? 'top-center' : 'bottom-right'}
+        position="bottom-right"
         toastOptions={{
           style: {
             background: 'rgba(20,20,32,0.85)',

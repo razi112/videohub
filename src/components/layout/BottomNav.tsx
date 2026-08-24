@@ -1,101 +1,194 @@
-import { Link, useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Home, Video, Tag, Tv, Search, LayoutDashboard } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Home, Compass, Search, Heart, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import SearchBar from '../ui/SearchBar'
 
-const navLinks = [
-  { href: '/',           label: 'Home',       icon: Home },
-  { href: '/videos',     label: 'Videos',     icon: Video },
-  { href: '/categories', label: 'Categories', icon: Tag },
-  { href: '/channels',   label: 'Channels',   icon: Tv },
+interface NavItem {
+  id: string
+  href?: string
+  label: string
+  icon: React.ElementType
+  action?: 'search'
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: 'home',     href: '/',          label: 'Home',    icon: Home },
+  { id: 'explore',  href: '/videos',    label: 'Explore', icon: Compass },
+  { id: 'search',                       label: 'Search',  icon: Search, action: 'search' },
+  { id: 'favorites',href: '/favorites', label: 'Saved',   icon: Heart },
+  { id: 'profile',  href: '/login',     label: 'Profile', icon: ShieldCheck },
 ]
 
 export default function BottomNav() {
   const location = useLocation()
-  const { isAdmin } = useStore()
+  const navigate  = useNavigate()
+  const { isAdmin, searchQuery, setSearchQuery } = useStore()
   const [searchOpen, setSearchOpen] = useState(false)
+
+  function isActive(item: NavItem) {
+    if (!item.href) return false
+    if (item.href === '/') return location.pathname === '/'
+    return location.pathname.startsWith(item.href)
+  }
+
+  function handleItem(item: NavItem) {
+    if (item.action === 'search') {
+      if (searchOpen) {
+        setSearchQuery('')
+        setSearchOpen(false)
+      } else {
+        setSearchOpen(true)
+      }
+      return
+    }
+    if (item.href) navigate(item.href)
+  }
+
+  // Replace Profile tab with Admin when logged in as admin
+  const items = NAV_ITEMS.map(item =>
+    item.id === 'profile' && isAdmin
+      ? { ...item, href: '/admin', label: 'Admin', icon: ShieldCheck }
+      : item
+  )
 
   return (
     <>
       {/* Search overlay */}
-      {searchOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 10 }}
-          className="fixed inset-x-0 bottom-[68px] z-40 px-4 pb-2"
-        >
-          <div className="glass-strong rounded-2xl p-3 border border-white/[0.09]">
-            <SearchBar onSearch={() => setSearchOpen(false)} />
-          </div>
-        </motion.div>
-      )}
-
-      {/* Bottom bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 glass-strong border-t border-white/[0.07]"
-           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around px-2 h-[60px]">
-
-          {navLinks.map(({ href, label, icon: Icon }) => {
-            const active = location.pathname === href || (href !== '/' && location.pathname.startsWith(href))
-            return (
-              <Link
-                key={href}
-                to={href}
-                className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 relative"
+      <AnimatePresence>
+        {searchOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            />
+            {/* Search panel */}
+            <motion.div
+              key="search-panel"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+              className="fixed inset-x-3 z-50"
+              style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}
+            >
+              <div
+                className="rounded-2xl p-3"
+                style={{
+                  background: 'rgba(15,15,26,0.92)',
+                  backdropFilter: 'blur(40px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+                }}
               >
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <SearchBar onSearch={() => setSearchOpen(false)} />
+                  </div>
+                  <button
+                    onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                    className="w-9 h-9 flex items-center justify-center rounded-full text-white/40 hover:text-white transition-colors shrink-0"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    aria-label="Close search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom navigation bar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 md:hidden"
+        style={{
+          background: 'rgba(8,8,16,0.85)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '20px 20px 0 0',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          boxShadow: '0 -4px 32px rgba(0,0,0,0.4)',
+        }}
+      >
+        {/* Top gleam line */}
+        <div
+          className="absolute top-0 inset-x-0 h-px"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(108,99,255,0.5) 40%, rgba(167,139,250,0.5) 60%, transparent)',
+          }}
+        />
+
+        <div className="flex items-center justify-around px-1" style={{ height: '62px' }}>
+          {items.map((item) => {
+            const active = item.action === 'search'
+              ? searchOpen || (searchQuery.length > 0)
+              : isActive(item)
+            const Icon = item.icon
+
+            return (
+              <motion.button
+                key={item.id}
+                whileTap={{ scale: 0.88 }}
+                onClick={() => handleItem(item)}
+                className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full"
+                aria-label={item.label}
+              >
+                {/* Active background pill */}
                 {active && (
                   <motion.span
-                    layoutId="bottomNavPill"
-                    className="absolute inset-x-2 inset-y-0 rounded-xl bg-white/10"
-                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    layoutId="bottomNavActive"
+                    className="absolute inset-x-1.5 top-2 bottom-1 rounded-2xl"
+                    style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.2)' }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                   />
                 )}
-                <Icon
-                  className={`relative z-10 w-5 h-5 transition-colors ${
-                    active ? 'text-[#a78bfa]' : 'text-white/40'
-                  }`}
-                />
+
+                {/* Icon */}
+                <div className="relative z-10">
+                  <Icon
+                    className="transition-all duration-200"
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      color: active ? '#a78bfa' : 'rgba(255,255,255,0.35)',
+                      filter: active ? 'drop-shadow(0 0 6px rgba(167,139,250,0.6))' : 'none',
+                      strokeWidth: active ? 2.2 : 1.8,
+                    }}
+                  />
+                  {/* Active dot */}
+                  {active && (
+                    <motion.span
+                      layoutId={`dot-${item.id}`}
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{ background: '#a78bfa', boxShadow: '0 0 6px #a78bfa' }}
+                    />
+                  )}
+                </div>
+
+                {/* Label */}
                 <span
-                  className={`relative z-10 text-[10px] font-medium transition-colors ${
-                    active ? 'text-[#a78bfa]' : 'text-white/35'
-                  }`}
+                  className="relative z-10 font-medium transition-all duration-200"
+                  style={{
+                    fontSize: '10px',
+                    color: active ? '#a78bfa' : 'rgba(255,255,255,0.3)',
+                    letterSpacing: active ? '0.01em' : '0',
+                  }}
                 >
-                  {label}
+                  {item.label}
                 </span>
-              </Link>
+              </motion.button>
             )
           })}
-
-          {/* Search tab */}
-          <button
-            onClick={() => setSearchOpen(s => !s)}
-            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1"
-          >
-            <Search className={`w-5 h-5 transition-colors ${searchOpen ? 'text-[#a78bfa]' : 'text-white/40'}`} />
-            <span className={`text-[10px] font-medium transition-colors ${searchOpen ? 'text-[#a78bfa]' : 'text-white/35'}`}>
-              Search
-            </span>
-          </button>
-
-          {/* Admin shortcut (only when logged in) */}
-          {isAdmin && (
-            <Link
-              to="/admin"
-              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1"
-            >
-              <LayoutDashboard className={`w-5 h-5 transition-colors ${
-                location.pathname.startsWith('/admin') ? 'text-[#a78bfa]' : 'text-white/40'
-              }`} />
-              <span className={`text-[10px] font-medium transition-colors ${
-                location.pathname.startsWith('/admin') ? 'text-[#a78bfa]' : 'text-white/35'
-              }`}>
-                Admin
-              </span>
-            </Link>
-          )}
         </div>
       </nav>
     </>
