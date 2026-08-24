@@ -12,7 +12,7 @@ export default function PublicLayout() {
         <Header />
       </div>
 
-      {/* Main content — extra bottom padding on mobile so last card clears the bottom nav */}
+      {/* Main content — bottom padding clears the bottom nav on mobile */}
       <main className="flex-1 pb-[80px] md:pb-0">
         <Outlet />
       </main>
@@ -22,7 +22,7 @@ export default function PublicLayout() {
         <Footer />
       </div>
 
-      {/* Bottom nav — visible only on mobile (md:hidden is inside BottomNav itself) */}
+      {/* Bottom nav — md:hidden inside BottomNav */}
       <BottomNav />
 
       <Toaster

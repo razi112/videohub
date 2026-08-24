@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion'
-import { Play, Eye, Star } from 'lucide-react'
+import { Play, Eye, Star, Headphones } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Video } from '../../types'
 import { getThumbnailUrl } from '../../lib/youtube'
+import { useAudioPlayer } from '../../store/useAudioPlayer'
 
 interface VideoCardProps {
   video: Video
@@ -27,6 +28,18 @@ function isSong(video: Video): boolean {
 export default function VideoCard({ video, showCategory = true }: VideoCardProps) {
   const thumbnail = video.thumbnail_url || getThumbnailUrl(video.youtube_video_id, 'high')
   const song = isSong(video)
+  const { playVideo, currentVideo, isPlaying } = useAudioPlayer()
+  const isCurrentAudio = currentVideo?.id === video.id
+
+  function handleAudio(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isCurrentAudio) {
+      useAudioPlayer.getState().togglePlay()
+    } else {
+      playVideo(video)
+    }
+  }
 
   return (
     <motion.div
@@ -213,14 +226,52 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
               </span>
             </div>
 
-            <motion.span
-              variants={{ hover: { color: 'rgba(255,255,255,0.7)' } }}
-              transition={{ duration: 0.2 }}
-              className="flex items-center gap-1 text-[10px] sm:text-xs text-white/35 shrink-0"
-            >
-              <Eye className="w-3 h-3" />
-              {formatViews(video.views)}
-            </motion.span>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Headphone / audio mode button */}
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                onClick={handleAudio}
+                className="flex items-center justify-center w-6 h-6 rounded-full transition-all"
+                style={{
+                  background: isCurrentAudio ? 'rgba(108,99,255,0.25)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${isCurrentAudio ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                }}
+                aria-label="Play audio"
+                title="Listen as audio"
+              >
+                {isCurrentAudio && isPlaying
+                  ? (
+                    /* Animated bars when playing */
+                    <span className="flex items-end gap-[2px] h-3">
+                      {[0, 0.15, 0.07].map((delay, i) => (
+                        <motion.span
+                          key={i}
+                          className="w-[2px] rounded-full"
+                          style={{ background: '#a78bfa' }}
+                          animate={{ height: ['4px', '10px', '4px'] }}
+                          transition={{ duration: 0.7, repeat: Infinity, delay, ease: 'easeInOut' }}
+                        />
+                      ))}
+                    </span>
+                  )
+                  : (
+                    <Headphones
+                      className="w-3 h-3"
+                      style={{ color: isCurrentAudio ? '#a78bfa' : 'rgba(255,255,255,0.4)' }}
+                    />
+                  )
+                }
+              </motion.button>
+
+              <motion.span
+                variants={{ hover: { color: 'rgba(255,255,255,0.7)' } }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-1 text-[10px] sm:text-xs text-white/35"
+              >
+                <Eye className="w-3 h-3" />
+                {formatViews(video.views)}
+              </motion.span>
+            </div>
           </div>
         </motion.div>
       </Link>
