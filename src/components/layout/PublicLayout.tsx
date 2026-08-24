@@ -1,18 +1,23 @@
 import { Outlet } from 'react-router-dom'
 import Header from './Header'
 import Footer from './Footer'
+import BottomNav from './BottomNav'
 import { Toaster } from 'react-hot-toast'
+import { Capacitor } from '@capacitor/core'
+
+const isAndroid = Capacitor.getPlatform() === 'android'
 
 export default function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      <Header />
-      <main className="flex-1">
+      {!isAndroid && <Header />}
+      <main className={`flex-1${isAndroid ? ' pb-[76px]' : ''}`}>
         <Outlet />
       </main>
-      <Footer />
+      {!isAndroid && <Footer />}
+      {isAndroid && <BottomNav />}
       <Toaster
-        position="bottom-right"
+        position={isAndroid ? 'top-center' : 'bottom-right'}
         toastOptions={{
           style: {
             background: 'rgba(20,20,32,0.85)',
