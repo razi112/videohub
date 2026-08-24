@@ -106,7 +106,7 @@ export default function VideoPlayerPage() {
               <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 {embedStatus === 'checking' && <div className="absolute inset-0 glass animate-pulse" />}
                 <iframe ref={iframeRef}
-                  src={embedStatus !== 'checking' ? getEmbedUrl(video.youtube_video_id, { rel: false, autoplay, mute: autoplay }) : undefined}
+                  src={embedStatus !== 'checking' ? getEmbedUrl(video.youtube_video_id, { rel: false, autoplay }) : undefined}
                   title={video.title}
                   className="absolute inset-0 w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -157,7 +157,15 @@ export default function VideoPlayerPage() {
 
             {/* Description */}
             {video.description && (
-              <p className="mt-4 sm:mt-5 text-white/40 text-xs sm:text-sm leading-relaxed whitespace-pre-line">{video.description}</p>
+              <div className="mt-4 sm:mt-5 rounded-2xl p-4 sm:p-5"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                }}>
+                <p className="text-white/60 text-xs sm:text-sm leading-relaxed whitespace-pre-line">{video.description}</p>
+              </div>
             )}
 
             {/* Tags */}
