@@ -144,8 +144,8 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Loading state */}
-            {videosLoading && (
+            {/* Loading skeleton — only show when no videos are loaded yet */}
+            {videosLoading && latestVideos.length === 0 && (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="rounded-2xl overflow-hidden animate-pulse"
@@ -182,8 +182,8 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Video grid */}
-            {!videosLoading && !videosError && latestVideos.length > 0 && (
+            {/* Video grid — show whenever we have videos (even while background-refreshing) */}
+            {latestVideos.length > 0 && (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {latestVideos.map((v, i) => (
                   <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>

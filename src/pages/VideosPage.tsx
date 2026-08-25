@@ -43,14 +43,8 @@ export default function VideosPage() {
         <CategoryFilter />
       </div>
 
-      {/* When not searching, show nothing until the user types */}
-      {!isSearching && !selectedCategory ? (
-        <div className="text-center py-20">
-          <p className="text-4xl mb-3">🔍</p>
-          <p className="text-lg font-semibold text-white/50">Search for a video</p>
-          <p className="text-sm mt-1 text-white/30">Type something above to find videos</p>
-        </div>
-      ) : filtered.length === 0 ? (
+      {/* Loading / empty states */}
+      {filtered.length === 0 ? (
         <div className="text-center py-20">
           <p className="text-4xl mb-3">🎬</p>
           <p className="text-lg font-semibold text-white/50">No videos found</p>

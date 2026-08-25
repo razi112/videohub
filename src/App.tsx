@@ -31,19 +31,21 @@ import AdminChannelsPage from './pages/admin/AdminChannelsPage'
 import AddChannelPage from './pages/admin/AddChannelPage'
 
 export default function App() {
-  const { loadVideos, loadCategories, loadChannels } = useStore()
+  const { loadVideos, loadCategories, loadChannels, isAdmin, roleLoading } = useStore()
 
+  // Initial load
   useEffect(() => {
     loadCategories()
-    loadVideos()
     loadChannels()
+    loadVideos()
   }, [])
 
-  // Reload videos when admin status changes (login/logout)
-  const isAdmin = useStore(s => s.isAdmin)
+  // Re-fetch videos only when admin role is confirmed, so drafts become visible.
+  // We track the previous isAdmin value to avoid a redundant fetch on first render.
   useEffect(() => {
-    loadVideos()
-    loadChannels()
+    if (isAdmin && !roleLoading) {
+      loadVideos()
+    }
   }, [isAdmin])
 
   return (

@@ -4,6 +4,15 @@ import type { Video, Category, User, Favorite, WatchHistory, Download, Channel }
 import { supabase } from '../lib/supabase'
 import { fetchCurrentUserRole } from '../lib/auth'
 
+export interface AdminUserProfile {
+  id: string
+  name: string
+  email: string
+  avatar_url: string | null
+  role: 'admin' | 'user'
+  created_at: string
+}
+
 interface AppState {
   // Auth
   currentUser: User | null
@@ -29,6 +38,12 @@ interface AppState {
   addVideo: (video: Omit<Video, 'id' | 'created_at' | 'updated_at'> & Partial<Pick<Video, 'id' | 'created_at' | 'updated_at'>>) => Promise<void>
   updateVideo: (id: string, updates: Partial<Video>) => Promise<void>
   deleteVideo: (id: string) => Promise<void>
+
+  // Users (admin only)
+  adminUsers: AdminUserProfile[]
+  adminUsersLoading: boolean
+  adminUsersError: string | null
+  loadAdminUsers: () => Promise<void>
 
   // Channels
   channels: Channel[]
@@ -75,6 +90,17 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void
   darkMode: boolean
   toggleDarkMode: () => void
+}
+
+/** Returns true when a Supabase error is caused by an expired JWT. */
+function isJwtExpired(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false
+  return (
+    error.code === 'PGRST301' ||
+    error.message?.toLowerCase().includes('jwt expired') ||
+    error.message?.toLowerCase().includes('invalid jwt') ||
+    false
+  )
 }
 
 export const useStore = create<AppState>()(
@@ -166,18 +192,31 @@ export const useStore = create<AppState>()(
 
       loadVideos: async () => {
         const { isAdmin } = get()
+        // Keep existing videos visible while refetching (avoid flash/empty state)
         set({ videosLoading: true, videosError: null })
 
-        let query = supabase
-          .from('videos')
-          .select('*, category:categories(*)')
-          .order('created_at', { ascending: false })
-
-        if (!isAdmin) {
-          query = query.eq('status', 'published')
+        const runQuery = async () => {
+          let query = supabase
+            .from('videos')
+            .select('*, category:categories(*)')
+            .order('created_at', { ascending: false })
+          if (!isAdmin) {
+            query = query.eq('status', 'published')
+          }
+          return query
         }
 
-        const { data, error } = await query
+        let { data, error } = await runQuery()
+
+        // If JWT expired, refresh the session and retry once
+        if (error && isJwtExpired(error)) {
+          console.warn('loadVideos: JWT expired — refreshing session and retrying')
+          const refreshed = await supabase.auth.refreshSession()
+          if (!refreshed.error) {
+            ;({ data, error } = await runQuery())
+          }
+        }
+
         if (error) {
           console.error('loadVideos error:', error.message, error.code)
           set({ videosLoading: false, videosError: error.message })
@@ -187,10 +226,20 @@ export const useStore = create<AppState>()(
       },
 
       loadCategories: async () => {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('categories')
           .select('*')
           .order('name')
+
+        // If JWT expired, refresh the session and retry once
+        if (error && isJwtExpired(error)) {
+          console.warn('loadCategories: JWT expired — refreshing session and retrying')
+          const refreshed = await supabase.auth.refreshSession()
+          if (!refreshed.error) {
+            ;({ data, error } = await supabase.from('categories').select('*').order('name'))
+          }
+        }
+
         if (error) {
           console.error('loadCategories error:', error.message, error.code)
           return
@@ -242,6 +291,7 @@ export const useStore = create<AppState>()(
         if (updates.is_featured !== undefined) payload.is_featured = updates.is_featured
         if (updates.tags !== undefined) payload.tags = updates.tags
         if (updates.duration !== undefined) payload.duration = updates.duration
+        if (updates.views !== undefined) payload.views = updates.views
         payload.updated_at = new Date().toISOString()
 
         const { data, error } = await supabase
@@ -265,14 +315,47 @@ export const useStore = create<AppState>()(
         set((s) => ({ videos: s.videos.filter((v) => v.id !== id) }))
       },
 
+      // Admin Users
+      adminUsers: [],
+      adminUsersLoading: false,
+      adminUsersError: null,
+
+      loadAdminUsers: async () => {
+        set({ adminUsersLoading: true, adminUsersError: null })
+        const { data, error } = await supabase.rpc('get_user_profiles')
+        if (error) {
+          console.error('loadAdminUsers error:', error.message)
+          set({ adminUsersLoading: false, adminUsersError: error.message })
+          return
+        }
+        set({
+          adminUsers: (data ?? []) as AdminUserProfile[],
+          adminUsersLoading: false,
+          adminUsersError: null,
+        })
+      },
+
       // Channels (persisted in Supabase)
       channels: [],
 
       loadChannels: async () => {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('channels')
           .select('*, category:categories(*)')
           .order('created_at', { ascending: false })
+
+        // If JWT expired, refresh the session and retry once
+        if (error && isJwtExpired(error)) {
+          console.warn('loadChannels: JWT expired — refreshing session and retrying')
+          const refreshed = await supabase.auth.refreshSession()
+          if (!refreshed.error) {
+            ;({ data, error } = await supabase
+              .from('channels')
+              .select('*, category:categories(*)')
+              .order('created_at', { ascending: false }))
+          }
+        }
+
         // Silently ignore if table doesn't exist yet
         if (!error && data) {
           set({ channels: data as Channel[] })
@@ -502,22 +585,11 @@ export const useStore = create<AppState>()(
 )
 
 /* ── Supabase Auth listener ─────────────────────────────────
-   Triggered on every auth state change (sign-in, sign-out,
-   token refresh). Calls resolveRole() which is the single
-   authoritative place that sets isAdmin from the database.
+   Only handles explicit sign-in and sign-out events.
 ──────────────────────────────────────────────────────────── */
 
-// Restore session on page load (handles OAuth redirect return)
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session?.user) {
-    useStore.getState().resolveRole()
-  }
-})
-
 supabase.auth.onAuthStateChange((event, session) => {
-  if (session?.user) {
-    // SIGNED_IN covers initial login and token refresh.
-    // resolveRole() fetches role from DB — never from local state.
+  if (event === 'SIGNED_IN' && session?.user) {
     useStore.getState().resolveRole()
   } else if (event === 'SIGNED_OUT') {
     useStore.setState({

@@ -708,24 +708,13 @@ function ProfileRow({
 
 /* ── Main AccountPage ─────────────────────────────────────── */
 export default function AccountPage() {
-  const { currentUser, isAdmin, roleLoading, signOut, favorites, watchHistory, downloads } = useStore()
+  const { currentUser, isAdmin, signOut, favorites, watchHistory, downloads } = useStore()
   const navigate = useNavigate()
 
   function handleSignOut() {
     signOut()
     toast.success('Signed out successfully')
     navigate('/')
-  }
-
-  if (roleLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-7 h-7 text-[#a78bfa] animate-spin" />
-          <p className="text-white/30 text-sm">Loading your account…</p>
-        </div>
-      </div>
-    )
   }
 
   if (!currentUser) {

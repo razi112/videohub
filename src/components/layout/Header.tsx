@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, Menu, X, LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react'
+import { Search, Menu, X, LayoutDashboard, LogOut, ShieldCheck, LogIn } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../../store/useStore'
@@ -165,8 +165,8 @@ export default function Header() {
                   to="/login"
                   className="flex items-center gap-1.5 px-3 py-1.5 glass rounded-full text-white/60 text-sm font-medium hover:text-white hover:bg-white/10 transition-all"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#6c63ff]" />
-                  <span className="hidden sm:inline">Admin</span>
+                  <LogIn className="w-3.5 h-3.5 text-[#6c63ff]" />
+                  <span className="hidden sm:inline">Login</span>
                 </Link>
               </motion.div>
             )}
