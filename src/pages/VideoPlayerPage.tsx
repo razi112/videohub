@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Heart, Share2, ExternalLink, ArrowLeft, Eye, Calendar, Tag,
   Headphones, Video as VideoIcon, Play, Pause, SkipBack, SkipForward, Music2,
+  Download, CheckCircle2,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../store/useStore'
@@ -12,15 +13,7 @@ import toast from 'react-hot-toast'
 import { useAudioPlayer } from '../store/useAudioPlayer'
 import { loadYTApi } from '../lib/ytApi'
 
-/* YTPlayer interface — window.YT is declared in MiniAudioPlayer.tsx */
-interface YTPlayer {
-  playVideo(): void
-  pauseVideo(): void
-  getCurrentTime(): number
-  getDuration(): number
-  seekTo(s: number, allow: boolean): void
-  destroy(): void
-}
+/* YTPlayer global type is declared in src/types/youtube.d.ts */
 
 function fmt(s: number) {
   if (!isFinite(s) || s < 0) return '0:00'
@@ -43,7 +36,7 @@ export default function VideoPlayerPage() {
   const [searchParams] = useSearchParams()
   const autoplay = searchParams.get('autoplay') === '1'
 
-  const { videos, toggleFavorite, isFavorite, updateVideo } = useStore()
+  const { videos, toggleFavorite, isFavorite, updateVideo, toggleDownload, isDownloaded } = useStore()
   const audioStore = useAudioPlayer()
 
   const [embedStatus, setEmbedStatus] = useState<'checking' | 'ok' | 'blocked'>('checking')
@@ -216,6 +209,15 @@ export default function VideoPlayerPage() {
   const favorite = isFavorite(video.id)
   const handleFavorite = () => { toggleFavorite(video.id); toast.success(favorite ? 'Removed from saved' : 'Video saved!') }
   const handleShare = () => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied!') }
+
+  /* ── Download (in-app save) ── */
+  const downloaded = isDownloaded(video.id)
+  const handleDownload = () => {
+    toggleDownload(video.id)
+    toast.success(downloaded ? 'Removed from downloads' : 'Saved to downloads!')
+  }
+
+  const ytUrl = getWatchUrl(video.youtube_video_id)
   const handleIframeLoad = () => {
     if (!loadedRef.current) {
       loadedRef.current = true
@@ -483,7 +485,29 @@ export default function VideoPlayerPage() {
                 }
               </motion.button>
 
-              <a href={getWatchUrl(video.youtube_video_id)} target="_blank" rel="noopener noreferrer"
+              {/* Download — save to app */}
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleDownload}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all"
+                style={downloaded ? {
+                  background: 'linear-gradient(135deg,rgba(52,211,153,0.2),rgba(16,185,129,0.1))',
+                  border: '1px solid rgba(52,211,153,0.35)',
+                  color: '#34d399',
+                } : {
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.55)',
+                }}
+                aria-label={downloaded ? 'Remove from downloads' : 'Save to downloads'}
+              >
+                {downloaded
+                  ? <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Downloaded</>
+                  : <><Download className="w-3.5 h-3.5 shrink-0" /> Download</>
+                }
+              </motion.button>
+
+              <a href={ytUrl} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-4 py-2 glass rounded-full text-white/50 hover:text-red-400 text-xs sm:text-sm font-medium transition-all sm:ml-auto">
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" /> YouTube
               </a>

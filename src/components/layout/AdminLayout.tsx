@@ -1,11 +1,13 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
 import {
   LayoutDashboard, Video, PlusCircle, FileText, Star,
-  Tag, Users, BarChart2, Home, Settings, Menu, X, LogOut, ChevronRight, Tv2
+  Tag, Users, BarChart2, Home, Settings, Menu, X, LogOut, ChevronRight, Tv2,
+  Loader2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../../store/useStore'
+import { verifyAdminAccess } from '../../lib/auth'
 import { Toaster } from 'react-hot-toast'
 
 const navItems = [
@@ -26,7 +28,20 @@ const navItems = [
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
-  const { isAdmin, setCurrentUser } = useStore()
+  const { isAdmin, roleLoading, signOut } = useStore()
+
+  // Server-side guard: independently verify admin access via Supabase,
+  // regardless of what's in the Zustand store (prevents spoofing via
+  // localStorage manipulation).
+  const [serverVerified, setServerVerified] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    verifyAdminAccess().then((ok) => {
+      if (!cancelled) setServerVerified(ok)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
@@ -40,9 +55,28 @@ export default function AdminLayout() {
     if (window.innerWidth < 1024) setSidebarOpen(false)
   }, [location.pathname])
 
-  if (!isAdmin) return <Navigate to="/login" replace />
+  // ── Loading state: wait for both store + server verification ──
+  if (roleLoading || serverVerified === null) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'var(--bg-primary)' }}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-[#a78bfa] animate-spin" />
+          <p className="text-white/40 text-sm">Verifying access…</p>
+        </div>
+      </div>
+    )
+  }
 
-  const handleLogout = () => setCurrentUser(null)
+  // ── Access denied: redirect to account page ──
+  // Both the store value AND the fresh DB query must agree.
+  if (!isAdmin || !serverVerified) {
+    return <Navigate to="/account" replace />
+  }
+
+  const handleLogout = () => signOut()
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg-primary)' }}>

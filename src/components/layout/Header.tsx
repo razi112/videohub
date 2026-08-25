@@ -15,11 +15,19 @@ const navLinks = [
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { isAdmin, setCurrentUser } = useStore()
+  const { isAdmin, currentUser, signOut, setCurrentUser } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleLogout = () => { setCurrentUser(null); navigate('/') }
+  const handleLogout = () => {
+    signOut()
+    setCurrentUser(null)
+    navigate('/')
+  }
+
+  const userInitial = currentUser
+    ? (currentUser.name?.[0] ?? currentUser.email?.[0] ?? 'U').toUpperCase()
+    : null
 
   return (
     <header className="sticky top-0 z-50">
@@ -98,6 +106,59 @@ export default function Header() {
                   <LogOut className="w-4 h-4" />
                 </motion.button>
               </div>
+            ) : currentUser ? (
+              /* Logged-in regular user */
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to="/account"
+                  className="hidden sm:flex items-center gap-2 pl-1.5 pr-3 py-1 glass rounded-full hover:bg-white/10 transition-all"
+                >
+                  {currentUser.avatar ? (
+                    <img
+                      src={currentUser.avatar}
+                      alt={currentUser.name}
+                      className="w-6 h-6 rounded-full object-cover"
+                      style={{ border: '1.5px solid rgba(167,139,250,0.5)' }}
+                    />
+                  ) : (
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #6c63ff, #a78bfa)' }}
+                    >
+                      {userInitial}
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-white/80 max-w-[90px] truncate">
+                    {currentUser.name?.split(' ')[0] ?? 'Account'}
+                  </span>
+                </Link>
+                {/* Avatar-only on mobile (sm and below) */}
+                <Link to="/account" className="sm:hidden">
+                  {currentUser.avatar ? (
+                    <img
+                      src={currentUser.avatar}
+                      alt={currentUser.name}
+                      className="w-8 h-8 rounded-full object-cover"
+                      style={{ border: '2px solid rgba(167,139,250,0.5)' }}
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #6c63ff, #a78bfa)' }}
+                    >
+                      {userInitial}
+                    </div>
+                  )}
+                </Link>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleLogout}
+                  className="w-9 h-9 glass rounded-full flex items-center justify-center text-white/40 hover:text-red-400 transition-colors"
+                  aria-label="Sign out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </motion.button>
+              </div>
             ) : (
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Link
@@ -172,6 +233,31 @@ export default function Header() {
                   <button onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
                     className="px-4 py-3 rounded-xl text-sm font-medium text-red-400/80 hover:bg-red-500/10 flex items-center gap-2 transition-all text-left">
                     <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </>
+              ) : currentUser ? (
+                <>
+                  {/* User profile row */}
+                  <Link to="/account" onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-xl flex items-center gap-3 hover:bg-white/5 transition-all">
+                    {currentUser.avatar ? (
+                      <img src={currentUser.avatar} alt={currentUser.name}
+                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                        style={{ border: '2px solid rgba(167,139,250,0.4)' }} />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #6c63ff, #a78bfa)' }}>
+                        {userInitial}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
+                      <p className="text-xs text-white/35 truncate">{currentUser.email}</p>
+                    </div>
+                  </Link>
+                  <button onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
+                    className="px-4 py-3 rounded-xl text-sm font-medium text-red-400/80 hover:bg-red-500/10 flex items-center gap-2 transition-all text-left">
+                    <LogOut className="w-4 h-4" /> Sign Out
                   </button>
                 </>
               ) : (

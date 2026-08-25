@@ -12,6 +12,8 @@ import CategoriesPage from './pages/CategoriesPage'
 import FavoritesPage from './pages/FavoritesPage'
 import LoginPage from './pages/LoginPage'
 import ChannelsPage from './pages/ChannelsPage'
+import ShortsPage from './pages/ShortsPage'
+import AccountPage from './pages/AccountPage'
 
 // Admin Pages
 import AdminOverview from './pages/admin/AdminOverview'
@@ -55,6 +57,8 @@ export default function App() {
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/channels" element={<ChannelsPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/shorts" element={<ShortsPage />} />
+          <Route path="/account" element={<AccountPage />} />
         </Route>
 
         {/* Standalone pages (no header/footer) */}

@@ -52,6 +52,14 @@ export interface WatchHistory {
   updated_at: string
 }
 
+export interface Download {
+  id: string
+  user_id: string
+  video_id: string
+  video?: Video
+  saved_at: string
+}
+
 export interface Collection {
   id: string
   title: string

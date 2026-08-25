@@ -4,14 +4,45 @@ import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import VideoCard from '../components/ui/VideoCard'
 import { useMemo } from 'react'
+import { GoogleSignInPrompt } from './AccountPage'
 
 export default function FavoritesPage() {
-  const { favorites, videos } = useStore()
+  const { favorites, videos, currentUser } = useStore()
 
   const favoriteVideos = useMemo(() =>
     favorites.map((f) => videos.find((v) => v.id === f.video_id)).filter(Boolean) as typeof videos,
     [favorites, videos]
   )
+
+  /* ── Not logged in: show Google Sign-In prompt ── */
+  if (!currentUser) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-7">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-9 h-9 glass rounded-xl flex items-center justify-center">
+              <Heart className="w-4 h-4 text-red-400" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Saved Videos</h1>
+          </div>
+        </motion.div>
+
+        <div
+          className="max-w-sm mx-auto rounded-3xl overflow-hidden"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}
+        >
+          <GoogleSignInPrompt
+            heading="Sign in to save videos"
+            subtext="Sign in with Google to save videos and access them from any device."
+            compact={false}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">

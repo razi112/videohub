@@ -1,13 +1,26 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Video, Category, User, Favorite, WatchHistory, Channel } from '../types'
+import type { Video, Category, User, Favorite, WatchHistory, Download, Channel } from '../types'
 import { supabase } from '../lib/supabase'
+import { fetchCurrentUserRole } from '../lib/auth'
 
 interface AppState {
   // Auth
   currentUser: User | null
   isAdmin: boolean
+  /** true while the DB role check is in-flight after OAuth callback */
+  roleLoading: boolean
   setCurrentUser: (user: User | null) => void
+  signInWithGoogle: () => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<void>
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>
+  signOut: () => void
+  /**
+   * Re-fetches the user's role from the `user_roles` table using the live
+   * Supabase session. This is the ONLY place where isAdmin becomes true.
+   * Called after every auth state change.
+   */
+  resolveRole: () => Promise<void>
 
   // Videos
   videos: Video[]
@@ -46,6 +59,11 @@ interface AppState {
   updateWatchProgress: (videoId: string, progress: number, completed?: boolean) => void
   getVideoProgress: (videoId: string) => WatchHistory | undefined
 
+  // Downloads (in-app saved videos)
+  downloads: Download[]
+  toggleDownload: (videoId: string) => void
+  isDownloaded: (videoId: string) => boolean
+
   // Search
   searchQuery: string
   setSearchQuery: (q: string) => void
@@ -65,7 +83,79 @@ export const useStore = create<AppState>()(
       // Auth
       currentUser: null,
       isAdmin: false,
+      roleLoading: false,
       setCurrentUser: (user) => set({ currentUser: user, isAdmin: user?.role === 'admin' }),
+
+      signInWithGoogle: async () => {
+        // Initiates Google OAuth redirect. Role is resolved after the redirect
+        // returns via the onAuthStateChange listener below.
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: `${window.location.origin}/account` },
+        })
+        if (error) throw error
+      },
+
+      signInWithEmail: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        // resolveRole is called automatically via onAuthStateChange
+      },
+
+      signUpWithEmail: async (email, password, name) => {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name ?? '' },
+          },
+        })
+        if (error) throw error
+        // resolveRole is called automatically via onAuthStateChange
+      },
+
+      signOut: () => {
+        supabase.auth.signOut().catch(() => {})
+        set({ currentUser: null, isAdmin: false, roleLoading: false, favorites: [], watchHistory: [], downloads: [] })
+      },
+
+      resolveRole: async () => {
+        // 1. Get the live Supabase session
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          set({ currentUser: null, isAdmin: false, roleLoading: false })
+          return
+        }
+
+        const su = session.user
+        set({ roleLoading: true })
+
+        // 2. Build the base user object (role defaults to 'user' until DB confirms)
+        const baseUser: User = {
+          id: su.id,
+          name: su.user_metadata?.full_name ?? su.email ?? 'User',
+          email: su.email ?? '',
+          avatar: su.user_metadata?.avatar_url,
+          role: 'user',
+          created_at: su.created_at,
+        }
+
+        // 3. Fetch role from database — this is the authoritative source
+        const { role } = await fetchCurrentUserRole()
+        const resolvedUser: User = { ...baseUser, role }
+
+        set({
+          currentUser: resolvedUser,
+          isAdmin: role === 'admin',
+          roleLoading: false,
+        })
+
+        // 4. Reload videos so admin sees drafts immediately on login
+        if (role === 'admin') {
+          get().loadVideos()
+          get().loadChannels()
+        }
+      },
 
       // Videos
       videos: [],
@@ -306,7 +396,8 @@ export const useStore = create<AppState>()(
       favorites: [],
       toggleFavorite: (videoId) => {
         const { favorites, currentUser } = get()
-        if (!currentUser) return
+        // Allow saving without login (guest mode — stored locally)
+        const userId = currentUser?.id ?? 'guest'
         const exists = favorites.find((f) => f.video_id === videoId)
         if (exists) {
           set({ favorites: favorites.filter((f) => f.video_id !== videoId) })
@@ -316,7 +407,7 @@ export const useStore = create<AppState>()(
               ...favorites,
               {
                 id: Date.now().toString(),
-                user_id: currentUser.id,
+                user_id: userId,
                 video_id: videoId,
                 created_at: new Date().toISOString(),
               },
@@ -358,6 +449,30 @@ export const useStore = create<AppState>()(
       },
       getVideoProgress: (videoId) => get().watchHistory.find((h) => h.video_id === videoId),
 
+      // Downloads (in-app saved videos)
+      downloads: [],
+      toggleDownload: (videoId) => {
+        const { downloads, currentUser } = get()
+        const userId = currentUser?.id ?? 'guest'
+        const exists = downloads.find((d) => d.video_id === videoId)
+        if (exists) {
+          set({ downloads: downloads.filter((d) => d.video_id !== videoId) })
+        } else {
+          set({
+            downloads: [
+              {
+                id: Date.now().toString(),
+                user_id: userId,
+                video_id: videoId,
+                saved_at: new Date().toISOString(),
+              },
+              ...downloads,
+            ],
+          })
+        }
+      },
+      isDownloaded: (videoId) => get().downloads.some((d) => d.video_id === videoId),
+
       // Search / Filter
       searchQuery: '',
       setSearchQuery: (q) => set({ searchQuery: q }),
@@ -377,6 +492,7 @@ export const useStore = create<AppState>()(
       partialize: (s) => ({
         favorites: s.favorites,
         watchHistory: s.watchHistory,
+        downloads: s.downloads,
         currentUser: s.currentUser,
         isAdmin: s.isAdmin,
         darkMode: s.darkMode,
@@ -384,3 +500,30 @@ export const useStore = create<AppState>()(
     }
   )
 )
+
+/* ── Supabase Auth listener ─────────────────────────────────
+   Triggered on every auth state change (sign-in, sign-out,
+   token refresh). Calls resolveRole() which is the single
+   authoritative place that sets isAdmin from the database.
+──────────────────────────────────────────────────────────── */
+
+// Restore session on page load (handles OAuth redirect return)
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user) {
+    useStore.getState().resolveRole()
+  }
+})
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    // SIGNED_IN covers initial login and token refresh.
+    // resolveRole() fetches role from DB — never from local state.
+    useStore.getState().resolveRole()
+  } else if (event === 'SIGNED_OUT') {
+    useStore.setState({
+      currentUser: null,
+      isAdmin: false,
+      roleLoading: false,
+    })
+  }
+})

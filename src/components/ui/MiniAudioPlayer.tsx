@@ -7,47 +7,13 @@ import {
 import { useAudioPlayer } from '../../store/useAudioPlayer'
 import { getThumbnailUrl } from '../../lib/youtube'
 
-/* ─────────────────────────────────────────────────────────────
-   YouTube IFrame API types (minimal)
-───────────────────────────────────────────────────────────── */
-declare global {
-  interface Window {
-    YT: {
-      Player: new (
-        el: HTMLElement | string,
-        opts: {
-          videoId: string
-          playerVars?: Record<string, number | string>
-          events?: {
-            onReady?: (e: { target: YTPlayer }) => void
-            onStateChange?: (e: { data: number }) => void
-            onError?: (e: { data: number }) => void
-          }
-        }
-      ) => YTPlayer
-      PlayerState: { PLAYING: number; PAUSED: number; ENDED: number; BUFFERING: number }
-    }
-    onYouTubeIframeAPIReady: () => void
-  }
-}
-
-interface YTPlayer {
-  playVideo(): void
-  pauseVideo(): void
-  stopVideo(): void
-  loadVideoById(id: string): void
-  cueVideoById(id: string): void
-  getCurrentTime(): number
-  getDuration(): number
-  seekTo(seconds: number, allowSeekAhead: boolean): void
-  getPlayerState(): number
-  destroy(): void
-}
+/* YTPlayer global type is declared in src/types/youtube.d.ts */
 
 /* ─────────────────────────────────────────────────────────────
    Load YouTube IFrame API once
 ───────────────────────────────────────────────────────────── */
 import { loadYTApi } from '../../lib/ytApi'
+import AudioService from '../../lib/audioServicePlugin'
 
 /* ─────────────────────────────────────────────────────────────
    Format seconds → m:ss
@@ -141,6 +107,22 @@ export default function MiniAudioPlayer() {
     if (isPlaying) playerRef.current.playVideo()
     else playerRef.current.pauseVideo()
   }, [isPlaying, ready])
+
+  /* ── Android foreground service ────────────────────────────
+     Start the service (and its persistent notification) when
+     audio is playing so Android doesn't kill the process.
+     Stop it when the user pauses or closes the player.
+  ───────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (isPlaying && currentVideo) {
+      AudioService.start({
+        title:  currentVideo.title ?? 'Now Playing',
+        artist: currentVideo.category?.name ?? 'VideoHub',
+      }).catch(() => { /* not on Android – silently ignore */ })
+    } else {
+      AudioService.stop().catch(() => { /* not on Android – silently ignore */ })
+    }
+  }, [isPlaying, currentVideo])
 
   /* ── Progress ticker ───────────────────────────────────── */
   const tick = useCallback(() => {
