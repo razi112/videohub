@@ -13,31 +13,42 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Normally BridgeActivity.onPause() calls WebView.onPause(), which
-     * suspends JavaScript execution — killing the YouTube IFrame player.
-     * We skip that call so the WebView (and any playing audio) keeps running
-     * while the app is in the background.
+     * Normally BridgeActivity.onPause() calls super.onPause() which lets the Android
+     * system suspend the WebView, killing JavaScript execution and the YouTube IFrame player.
      *
-     * The foreground service notification satisfies Android's requirement
-     * that background work is visible to the user.
+     * We skip super.onPause() so the WebView keeps running in the background, while still
+     * notifying Capacitor plugins of the lifecycle event via bridge.onPause().
+     *
+     * Note: fireStatusChange(false) is intentionally NOT called here — Capacitor fires it
+     * in onStop() (when activityDepth reaches 0), matching the framework's own pattern.
+     *
+     * The foreground service notification satisfies Android's requirement that background
+     * work is visible to the user.
      */
     @Override
     public void onPause() {
-        // Intentionally do NOT call super.onPause() so the WebView is not paused.
-        // We still notify the Capacitor bridge about the lifecycle event.
-        getBridge().getApp().fireAppStateChange(false);
+        // Skip super.onPause() to prevent the system from pausing the WebView.
+        // Still notify plugins of the pause event.
+        if (getBridge() != null) {
+            getBridge().onPause();
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        // Re-notify the bridge that the app is active again
-        getBridge().getApp().fireAppStateChange(true);
+        // super.onResume() already calls bridge.getApp().fireStatusChange(true)
+        // and bridge.onResume() — nothing extra needed here.
     }
 
     @Override
     public void onStop() {
-        // Do NOT call super.onStop() — that would also pause the WebView.
-        // The foreground service keeps the process alive.
+        // Skip super.onStop() to prevent the WebView from being fully stopped.
+        // Still notify plugins and fire the app status change so Capacitor's
+        // App plugin correctly reports the app as inactive.
+        if (getBridge() != null) {
+            getBridge().getApp().fireStatusChange(false);
+            getBridge().onStop();
+        }
     }
 }
