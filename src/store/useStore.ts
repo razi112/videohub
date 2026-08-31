@@ -589,9 +589,15 @@ export const useStore = create<AppState>()(
 ──────────────────────────────────────────────────────────── */
 
 supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session?.user) {
+  if (
+    (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') &&
+    session?.user
+  ) {
+    // Restore or confirm user session on initial load, OAuth callback, and token refresh.
+    // resolveRole() fetches the authoritative role from the DB and populates currentUser.
     useStore.getState().resolveRole()
-  } else if (event === 'SIGNED_OUT') {
+  } else if (event === 'SIGNED_OUT' || (event === 'INITIAL_SESSION' && !session)) {
+    // No active session on initial load — clear any stale persisted state.
     useStore.setState({
       currentUser: null,
       isAdmin: false,
