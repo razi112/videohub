@@ -343,8 +343,8 @@ export default function ShortsPage() {
   const [direction, setDirection] = useState<1 | -1>(1)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Use all published videos as shorts feed
-  const feed: Video[] = videos.filter(v => v.status === 'published')
+  // Only show videos explicitly marked as shorts
+  const feed: Video[] = videos.filter(v => v.status === 'published' && v.is_short === true)
 
   function goNext() {
     if (activeIndex < feed.length - 1) {
@@ -392,7 +392,8 @@ export default function ShortsPage() {
           >
             <Play className="w-7 h-7 text-[#a78bfa]" />
           </div>
-          <p className="text-white/50 text-sm font-medium">No videos available</p>
+          <p className="text-white/50 text-sm font-medium">No shorts available</p>
+          <p className="text-white/25 text-xs mt-1">Mark videos as "Short" in the admin panel</p>
         </div>
       </div>
     )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link2, Search, Eye, Save, RefreshCw, PlayCircle, Music } from 'lucide-react'
+import { Link2, Search, Eye, Save, RefreshCw, PlayCircle, Music, Zap } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { extractYouTubeVideoId, getEmbedUrl, getThumbnailUrl } from '../../lib/youtube'
 import toast from 'react-hot-toast'
@@ -23,6 +23,7 @@ export default function AddVideoPage() {
   const [status, setStatus]       = useState<'published' | 'draft'>('published')
   const [isFeatured, setIsFeatured]   = useState(false)
   const [isSong, setIsSong]       = useState(false)
+  const [isShort, setIsShort]     = useState(false)
   const [duration, setDuration]   = useState('')
   const [saving, setSaving]       = useState(false)
 
@@ -39,7 +40,7 @@ export default function AddVideoPage() {
 
   const handleReset = () => {
     setUrl(''); setVideoId(''); setFetched(false); setTitle(''); setDescription('')
-    setCategoryId(''); setTags(''); setStatus('published'); setIsFeatured(false); setIsSong(false); setDuration('')
+    setCategoryId(''); setTags(''); setStatus('published'); setIsFeatured(false); setIsSong(false); setIsShort(false); setDuration('')
   }
 
   const handleSave = async () => {
@@ -58,6 +59,7 @@ export default function AddVideoPage() {
         category: selectedCat,
         status,
         is_featured: isFeatured,
+        is_short: isShort,
         views: 0,
         tags: (() => {
           const base = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []
@@ -206,6 +208,14 @@ export default function AddVideoPage() {
                       <span className="flex items-center gap-1.5 text-sm text-white/60">
                         <Music className={`w-3.5 h-3.5 transition-colors ${isSong ? 'text-[#a78bfa]' : 'text-white/25'}`} />
                         Music / Song
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={isShort} onChange={e => setIsShort(e.target.checked)}
+                        className="w-4 h-4 accent-[#f59e0b]" />
+                      <span className="flex items-center gap-1.5 text-sm text-white/60">
+                        <Zap className={`w-3.5 h-3.5 transition-colors ${isShort ? 'text-[#f59e0b]' : 'text-white/25'}`} />
+                        Short (appears in Shorts feed only)
                       </span>
                     </label>
                   </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Save, ArrowLeft, Music } from 'lucide-react'
+import { Save, ArrowLeft, Music, Zap } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { getEmbedUrl } from '../../lib/youtube'
 import toast from 'react-hot-toast'
@@ -21,6 +21,7 @@ export default function EditVideoPage() {
   const [status, setStatus]       = useState<'published' | 'draft'>(video?.status || 'draft')
   const [isFeatured, setIsFeatured]   = useState(video?.is_featured || false)
   const [isSong, setIsSong]       = useState(video?.tags?.includes('music') ?? false)
+  const [isShort, setIsShort]     = useState(video?.is_short ?? false)
   const [duration, setDuration]   = useState(video?.duration || '')
   const [saving, setSaving]       = useState(false)
 
@@ -48,6 +49,7 @@ export default function EditVideoPage() {
         })(),
         status,
         is_featured: isFeatured,
+        is_short: isShort,
         duration: duration.trim() || undefined,
       })
       toast.success('Video updated successfully!')
@@ -147,6 +149,14 @@ export default function EditVideoPage() {
                 <span className="flex items-center gap-1.5 text-sm text-white/60">
                   <Music className={`w-3.5 h-3.5 transition-colors ${isSong ? 'text-[#a78bfa]' : 'text-white/25'}`} />
                   Music / Song
+                </span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={isShort} onChange={e => setIsShort(e.target.checked)}
+                  className="w-4 h-4 accent-[#f59e0b]" />
+                <span className="flex items-center gap-1.5 text-sm text-white/60">
+                  <Zap className={`w-3.5 h-3.5 transition-colors ${isShort ? 'text-[#f59e0b]' : 'text-white/25'}`} />
+                  Short (appears in Shorts feed only)
                 </span>
               </label>
             </div>

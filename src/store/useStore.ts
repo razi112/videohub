@@ -260,6 +260,7 @@ export const useStore = create<AppState>()(
           channel_id: video.channel_id || null,
           status: video.status,
           is_featured: video.is_featured,
+          is_short: video.is_short ?? false,
           views: video.views ?? 0,
           tags: video.tags ?? [],
           duration: video.duration || null,
@@ -289,6 +290,7 @@ export const useStore = create<AppState>()(
         if (updates.category_id !== undefined) payload.category_id = updates.category_id || null
         if (updates.status !== undefined) payload.status = updates.status
         if (updates.is_featured !== undefined) payload.is_featured = updates.is_featured
+        if (updates.is_short !== undefined) payload.is_short = updates.is_short
         if (updates.tags !== undefined) payload.tags = updates.tags
         if (updates.duration !== undefined) payload.duration = updates.duration
         if (updates.views !== undefined) payload.views = updates.views
