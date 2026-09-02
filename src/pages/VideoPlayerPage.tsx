@@ -276,11 +276,21 @@ export default function VideoPlayerPage() {
       />
 
       {/* Back */}
-      <button onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-white/40 hover:text-white mb-5 transition-colors text-sm group">
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform shrink-0" />
+      <motion.button
+        onClick={() => navigate(-1)}
+        whileHover={{ x: -2 }}
+        whileTap={{ scale: 0.96 }}
+        className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full text-sm font-medium text-white/70 hover:text-white transition-colors"
+        style={{
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
+        <ArrowLeft className="w-4 h-4 shrink-0" />
         Back
-      </button>
+      </motion.button>
 
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
 
