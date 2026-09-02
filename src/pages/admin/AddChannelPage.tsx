@@ -260,6 +260,7 @@ export default function AddChannelPage() {
             channel_id: channelData.channelId,
             status: channelStatus,
             is_featured: false,
+            is_short: false,
             views: parseInt(entry.viewCount || '0') || 0,
             tags: [],
             duration: entry.duration,

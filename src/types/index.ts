@@ -18,6 +18,7 @@ export interface Video {
   channel_id?: string          // YouTube channel ID (UCxxxxx) if imported from channel
   status: 'published' | 'draft'
   is_featured: boolean
+  is_live?: boolean            // if true, shows a LIVE badge on the video card
   is_short: boolean            // if true, video appears only in the Shorts feed
   views: number
   tags?: string[]

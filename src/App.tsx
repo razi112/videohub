@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import { useStore } from './store/useStore'
 import PublicLayout from './components/layout/PublicLayout'
