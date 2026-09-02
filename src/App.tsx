@@ -1,88 +1,90 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { useEffect, lazy, Suspense } from 'react'
 import { useStore } from './store/useStore'
 import PublicLayout from './components/layout/PublicLayout'
 import AdminLayout from './components/layout/AdminLayout'
 
-// Public Pages
-import HomePage from './pages/HomePage'
-import VideosPage from './pages/VideosPage'
-import VideoPlayerPage from './pages/VideoPlayerPage'
-import CategoriesPage from './pages/CategoriesPage'
-import FavoritesPage from './pages/FavoritesPage'
-import LoginPage from './pages/LoginPage'
-import ChannelsPage from './pages/ChannelsPage'
-import ShortsPage from './pages/ShortsPage'
-import AccountPage from './pages/AccountPage'
+// Public Pages — lazy loaded
+const HomePage = lazy(() => import('./pages/HomePage'))
+const VideosPage = lazy(() => import('./pages/VideosPage'))
+const VideoPlayerPage = lazy(() => import('./pages/VideoPlayerPage'))
+const CategoriesPage = lazy(() => import('./pages/CategoriesPage'))
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const ChannelsPage = lazy(() => import('./pages/ChannelsPage'))
+const ShortsPage = lazy(() => import('./pages/ShortsPage'))
+const AccountPage = lazy(() => import('./pages/AccountPage'))
 
-// Admin Pages
-import AdminOverview from './pages/admin/AdminOverview'
-import AdminVideosPage from './pages/admin/AdminVideosPage'
-import AddVideoPage from './pages/admin/AddVideoPage'
-import EditVideoPage from './pages/admin/EditVideoPage'
-import AdminDraftsPage from './pages/admin/AdminDraftsPage'
-import AdminFeaturedPage from './pages/admin/AdminFeaturedPage'
-import AdminCategoriesPage from './pages/admin/AdminCategoriesPage'
-import AdminUsersPage from './pages/admin/AdminUsersPage'
-import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
-import AdminHomepagePage from './pages/admin/AdminHomepagePage'
-import AdminSettingsPage from './pages/admin/AdminSettingsPage'
-import AdminChannelsPage from './pages/admin/AdminChannelsPage'
-import AddChannelPage from './pages/admin/AddChannelPage'
+// Admin Pages — lazy loaded (separate chunk; only admins visit these)
+const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'))
+const AdminVideosPage = lazy(() => import('./pages/admin/AdminVideosPage'))
+const AddVideoPage = lazy(() => import('./pages/admin/AddVideoPage'))
+const EditVideoPage = lazy(() => import('./pages/admin/EditVideoPage'))
+const AdminDraftsPage = lazy(() => import('./pages/admin/AdminDraftsPage'))
+const AdminFeaturedPage = lazy(() => import('./pages/admin/AdminFeaturedPage'))
+const AdminCategoriesPage = lazy(() => import('./pages/admin/AdminCategoriesPage'))
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'))
+const AdminHomepagePage = lazy(() => import('./pages/admin/AdminHomepagePage'))
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'))
+const AdminChannelsPage = lazy(() => import('./pages/admin/AdminChannelsPage'))
+const AddChannelPage = lazy(() => import('./pages/admin/AddChannelPage'))
+
+/** Minimal full-screen fallback shown while a lazy chunk loads */
+function PageFallback() {
+  return <div className="min-h-screen" />
+}
 
 export default function App() {
-  const { loadVideos, loadCategories, loadChannels, isAdmin, roleLoading } = useStore()
+  const loadVideos = useStore(s => s.loadVideos)
+  const loadCategories = useStore(s => s.loadCategories)
+  const loadChannels = useStore(s => s.loadChannels)
 
-  // Initial load
+  // Initial load — run once on mount
   useEffect(() => {
     loadCategories()
     loadChannels()
     loadVideos()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Re-fetch videos only when admin role is confirmed, so drafts become visible.
-  // We track the previous isAdmin value to avoid a redundant fetch on first render.
-  useEffect(() => {
-    if (isAdmin && !roleLoading) {
-      loadVideos()
-    }
-  }, [isAdmin])
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public */}
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/videos" element={<VideosPage />} />
-          <Route path="/videos/:id" element={<VideoPlayerPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/channels" element={<ChannelsPage />} />
-          <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/shorts" element={<ShortsPage />} />
-          <Route path="/account" element={<AccountPage />} />
-        </Route>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          {/* Public */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/videos" element={<VideosPage />} />
+            <Route path="/videos/:id" element={<VideoPlayerPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/channels" element={<ChannelsPage />} />
+            <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/shorts" element={<ShortsPage />} />
+            <Route path="/account" element={<AccountPage />} />
+          </Route>
 
-        {/* Standalone pages (no header/footer) */}
-        <Route path="/login" element={<LoginPage />} />
+          {/* Standalone pages (no header/footer) */}
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Admin */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="videos" element={<AdminVideosPage />} />
-          <Route path="videos/add" element={<AddVideoPage />} />
-          <Route path="videos/edit/:id" element={<EditVideoPage />} />
-          <Route path="drafts" element={<AdminDraftsPage />} />
-          <Route path="featured" element={<AdminFeaturedPage />} />
-          <Route path="channels" element={<AdminChannelsPage />} />
-          <Route path="channels/add" element={<AddChannelPage />} />
-          <Route path="categories" element={<AdminCategoriesPage />} />
-          <Route path="users" element={<AdminUsersPage />} />
-          <Route path="analytics" element={<AdminAnalyticsPage />} />
-          <Route path="homepage" element={<AdminHomepagePage />} />
-          <Route path="settings" element={<AdminSettingsPage />} />
-        </Route>
-      </Routes>
+          {/* Admin */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="videos" element={<AdminVideosPage />} />
+            <Route path="videos/add" element={<AddVideoPage />} />
+            <Route path="videos/edit/:id" element={<EditVideoPage />} />
+            <Route path="drafts" element={<AdminDraftsPage />} />
+            <Route path="featured" element={<AdminFeaturedPage />} />
+            <Route path="channels" element={<AdminChannelsPage />} />
+            <Route path="channels/add" element={<AddChannelPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
+            <Route path="homepage" element={<AdminHomepagePage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

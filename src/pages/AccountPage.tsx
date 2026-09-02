@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   User, LogOut, Heart, Settings,
@@ -495,11 +495,14 @@ function HistorySection() {
   const { watchHistory, videos } = useStore()
   const [expanded, setExpanded] = useState(false)
 
-  const historyWithVideos = watchHistory
-    .slice()
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-    .map((h) => ({ ...h, video: videos.find((v) => v.id === h.video_id) }))
-    .filter((h) => h.video)
+  const historyWithVideos = useMemo(() =>
+    watchHistory
+      .slice()
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .map((h) => ({ ...h, video: videos.find((v) => v.id === h.video_id) }))
+      .filter((h) => h.video),
+    [watchHistory, videos]
+  )
 
   const visible = expanded ? historyWithVideos : historyWithVideos.slice(0, 3)
 
@@ -523,7 +526,7 @@ function HistorySection() {
           : 0
 
         return (
-          <Link key={h.id} to={`/watch/${h.video_id}`} className="block">
+          <Link key={h.id} to={`/videos/${h.video_id}?autoplay=1`} className="block">
             <motion.div
               whileTap={{ scale: 0.98 }}
               className="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all hover:brightness-110"
@@ -577,11 +580,14 @@ function HistorySection() {
 function DownloadsSection() {
   const { downloads, videos, toggleDownload } = useStore()
 
-  const savedVideos = downloads
-    .slice()
-    .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime())
-    .map((d) => ({ ...d, video: videos.find((v) => v.id === d.video_id) }))
-    .filter((d) => d.video)
+  const savedVideos = useMemo(() =>
+    downloads
+      .slice()
+      .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime())
+      .map((d) => ({ ...d, video: videos.find((v) => v.id === d.video_id) }))
+      .filter((d) => d.video),
+    [downloads, videos]
+  )
 
   if (savedVideos.length === 0) {
     return (

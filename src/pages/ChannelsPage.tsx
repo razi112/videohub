@@ -6,6 +6,83 @@ import VideoCard from '../components/ui/VideoCard'
 import SearchBar from '../components/ui/SearchBar'
 import { useMemo, useState } from 'react'
 
+/* ── Channel avatar ──────────────────────────────────────────
+   Priority: DB thumbnail_url → first-video YouTube thumbnail → initials
+   img.youtube.com has no CORS restriction so it always loads.
+─────────────────────────────────────────────────────────── */
+function ChannelAvatar({
+  channelId,
+  thumbnailUrl,
+  name,
+  size = 'md',
+}: {
+  channelId?: string
+  thumbnailUrl?: string
+  name: string
+  size?: 'sm' | 'md' | 'lg'
+}) {
+  const { videos } = useStore()
+
+  // Pick the first published video belonging to this channel
+  const firstVideoYtId = useMemo(() => {
+    if (!channelId) return null
+    return videos.find(v => v.channel_id === channelId && v.youtube_video_id)?.youtube_video_id ?? null
+  }, [videos, channelId])
+
+  // img.youtube.com is CORS-safe; use `default.jpg` (square crop) as channel stand-in
+  const videoThumb = firstVideoYtId
+    ? `https://img.youtube.com/vi/${firstVideoYtId}/default.jpg`
+    : null
+
+  // Source chain tried in order
+  const sources = [thumbnailUrl, videoThumb].filter(Boolean) as string[]
+  const [srcIndex, setSrcIndex] = useState(0)
+
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
+  const sizeClasses = {
+    sm: 'w-11 h-11 rounded-xl',
+    md: 'w-16 h-16 rounded-2xl',
+    lg: 'w-16 h-16 sm:w-20 sm:h-20 rounded-2xl',
+  }
+  const textSizes = {
+    sm: 'text-sm',
+    md: 'text-lg',
+    lg: 'text-xl sm:text-2xl',
+  }
+
+  const currentSrc = sources[srcIndex]
+  const showInitials = !currentSrc
+
+  return (
+    <div
+      className={`${sizeClasses[size]} overflow-hidden shrink-0 relative flex items-center justify-center shadow-lg`}
+      style={{ background: 'linear-gradient(135deg, #6c63ff, #a78bfa)' }}
+    >
+      {currentSrc && (
+        <img
+          key={currentSrc}
+          src={currentSrc}
+          alt={name}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={() => setSrcIndex(i => i + 1)}
+        />
+      )}
+      {showInitials && (
+        <span className={`font-bold text-white select-none ${textSizes[size]}`}>
+          {initials}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function ChannelsPage() {
   const { channels, videos, searchQuery } = useStore()
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
@@ -17,6 +94,18 @@ export default function ChannelsPage() {
     if (!activeChannel) return []
     return videos.filter(v => v.status === 'published' && v.channel_id === activeChannel.channel_id)
   }, [videos, activeChannel])
+
+  // O(n) single pass — avoids O(channels × videos) per render
+  const videoCountByChannelId = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const v of videos) {
+      if (v.status === 'published' && v.channel_id) {
+        map.set(v.channel_id, (map.get(v.channel_id) ?? 0) + 1)
+      }
+    }
+    return map
+  }, [videos])
+
 
   const filteredChannels = useMemo(() => {
     if (!searchQuery) return publishedChannels
@@ -43,13 +132,16 @@ export default function ChannelsPage() {
             <div className="glass-strong rounded-3xl p-5 sm:p-7 mb-8 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] to-transparent pointer-events-none rounded-3xl" />
               <div className="relative flex flex-col sm:flex-row sm:items-center gap-5">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0 shadow-xl shadow-[#6c63ff]/20">
-                  <Users className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                </div>
+                <ChannelAvatar
+                  channelId={activeChannel.channel_id}
+                  thumbnailUrl={activeChannel.thumbnail_url}
+                  name={activeChannel.name}
+                  size="lg"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-white">{activeChannel.name}</h1>
-                    {activeChannel.handle && <span className="text-sm text-white/30">@{activeChannel.handle}</span>}
+                    {activeChannel.handle && <span className="text-sm text-white/30">{activeChannel.handle}</span>}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-white/30 mt-2">
                     {activeChannel.category && (
@@ -111,7 +203,7 @@ export default function ChannelsPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredChannels.map((ch, i) => {
-                      const videoCount = videos.filter(v => v.status === 'published' && v.channel_id === ch.channel_id).length
+                      const videoCount = videoCountByChannelId.get(ch.channel_id) ?? 0
                       return (
                         <motion.div
                           key={ch.id}
@@ -129,9 +221,12 @@ export default function ChannelsPage() {
 
                           <div className="p-5 relative">
                             <div className="flex items-start gap-4">
-                              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center shrink-0">
-                                <Users className="w-5 h-5 text-white" />
-                              </div>
+                              <ChannelAvatar
+                                channelId={ch.channel_id}
+                                thumbnailUrl={ch.thumbnail_url}
+                                name={ch.name}
+                                size="sm"
+                              />
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-sm text-white truncate group-hover:text-[#a78bfa] transition-colors">{ch.name}</p>
                                 {ch.handle && <p className="text-xs text-white/30 mt-0.5">@{ch.handle}</p>}

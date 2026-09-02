@@ -1,9 +1,16 @@
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useStore } from '../../store/useStore'
 
 export default function CategoryFilter() {
-  const { categories, selectedCategory, setSelectedCategory } = useStore()
-  const all = [{ id: '', name: 'All', slug: '' }, ...categories]
+  const categories = useStore(s => s.categories)
+  const selectedCategory = useStore(s => s.selectedCategory)
+  const setSelectedCategory = useStore(s => s.setSelectedCategory)
+
+  const all = useMemo(
+    () => [{ id: '', name: 'All', slug: '' }, ...categories],
+    [categories]
+  )
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">

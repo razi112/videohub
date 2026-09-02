@@ -13,9 +13,8 @@ export default function HomePage() {
   const publishedVideos = useMemo(() => videos.filter((v) => v.status === 'published'), [videos])
   const featuredVideo = useMemo(() => publishedVideos.find((v) => v.is_featured), [publishedVideos])
   const latestVideos = useMemo(() =>
-    [...publishedVideos]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 8),
+    // Videos already arrive ordered by created_at DESC from Supabase — just slice
+    publishedVideos.slice(0, 8),
     [publishedVideos]
   )
 
@@ -128,9 +127,13 @@ export default function HomePage() {
             ) : (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {filteredVideos.map((v, i) => (
-                  <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                    <VideoCard video={v} />
-                  </motion.div>
+                  i < 8 ? (
+                    <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+                      <VideoCard video={v} />
+                    </motion.div>
+                  ) : (
+                    <VideoCard key={v.id} video={v} />
+                  )
                 ))}
               </div>
             )}
@@ -186,9 +189,13 @@ export default function HomePage() {
             {latestVideos.length > 0 && (
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 {latestVideos.map((v, i) => (
-                  <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <VideoCard video={v} />
-                  </motion.div>
+                  i < 8 ? (
+                    <motion.div key={v.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                      <VideoCard video={v} />
+                    </motion.div>
+                  ) : (
+                    <VideoCard key={v.id} video={v} />
+                  )
                 ))}
               </div>
             )}

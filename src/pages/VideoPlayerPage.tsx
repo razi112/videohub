@@ -21,13 +21,57 @@ function fmt(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+/** Convert "H:MM:SS" or "M:SS" duration string to total seconds */
+function parseDurationToSeconds(dur: string): number {
+  const parts = dur.split(':').map(Number)
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  return Number(dur) || 0
+}
+
+// Module-level cache — survives navigation, cleared only on page reload
+const embedCache = new Map<string, boolean>()
+
 async function checkEmbeddable(videoId: string): Promise<boolean> {
+  if (embedCache.has(videoId)) return embedCache.get(videoId)!
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
     )
-    return res.ok
-  } catch { return true }
+    const ok = res.ok
+    embedCache.set(videoId, ok)
+    return ok
+  } catch {
+    embedCache.set(videoId, true)
+    return true
+  }
+}
+
+/* ── LinkifiedText — renders plain text with URLs as clickable links ── */
+const URL_RE = /(\bhttps?:\/\/[^\s<>)"']+)/g
+
+function LinkifiedText({ text }: { text: string }) {
+  const parts = text.split(URL_RE)
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^\bhttps?:\/\//.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#a78bfa] hover:text-white underline underline-offset-2 break-all transition-colors"
+            onClick={e => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+    </>
+  )
 }
 
 export default function VideoPlayerPage() {
@@ -36,7 +80,7 @@ export default function VideoPlayerPage() {
   const [searchParams] = useSearchParams()
   const autoplay = searchParams.get('autoplay') === '1'
 
-  const { videos, toggleFavorite, isFavorite, updateVideo, toggleDownload, isDownloaded } = useStore()
+  const { videos, toggleFavorite, isFavorite, updateVideo, toggleDownload, isDownloaded, updateWatchProgress } = useStore()
   const audioStore = useAudioPlayer()
 
   const [embedStatus, setEmbedStatus] = useState<'checking' | 'ok' | 'blocked'>('checking')
@@ -51,6 +95,7 @@ export default function VideoPlayerPage() {
   const ytPlayerRef = useRef<YTPlayer | null>(null)
   const rafRef = useRef<number>(0)
   const loadedRef = useRef(false)
+  const iframeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Stable DOM id for the hidden YT player div
   const rawId = useId()
@@ -90,11 +135,12 @@ export default function VideoPlayerPage() {
           return
         }
 
-        // playerState 0 = ended → navigate to first related video
+        // playerState 0 = ended → mark completed, navigate to next
         if (
           (data?.event === 'infoDelivery' && data?.info?.playerState === 0) ||
           (data?.event === 'onStateChange' && data?.info === 0)
         ) {
+          if (video) updateWatchProgress(video.id, video.duration ? parseDurationToSeconds(video.duration) : 0, true)
           if (relatedVideos.length > 0) {
             navigate(`/videos/${relatedVideos[0].id}?autoplay=1`)
           }
@@ -178,6 +224,7 @@ export default function VideoPlayerPage() {
 
   useEffect(() => () => {
     cancelAnimationFrame(rafRef.current)
+    clearTimeout(iframeTimerRef.current)
     try { ytPlayerRef.current?.destroy() } catch { /* ignore */ }
   }, [])
 
@@ -222,9 +269,11 @@ export default function VideoPlayerPage() {
     if (!loadedRef.current) {
       loadedRef.current = true
       updateVideo(video.id, { views: video.views + 1 })
+      // Record this video in watch history the moment the player loads
+      updateWatchProgress(video.id, 0, false)
     }
     // Send unmute + set volume after iframe is ready so autoplay starts with sound
-    setTimeout(() => {
+    iframeTimerRef.current = setTimeout(() => {
       try {
         iframeRef.current?.contentWindow?.postMessage(
           JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
@@ -526,7 +575,9 @@ export default function VideoPlayerPage() {
             {video.description && (
               <div className="mt-4 sm:mt-5 rounded-2xl p-4 sm:p-5"
                 style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
-                <p className="text-white/60 text-xs sm:text-sm leading-relaxed whitespace-pre-line">{video.description}</p>
+                <p className="text-white/60 text-xs sm:text-sm leading-relaxed whitespace-pre-line">
+                  <LinkifiedText text={video.description} />
+                </p>
               </div>
             )}
 

@@ -68,9 +68,19 @@ export default function AdminChannelsPage() {
               <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   <div className="relative w-11 h-11 rounded-xl shrink-0 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] opacity-90" />
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-                    <Users className="absolute inset-0 m-auto w-5 h-5 text-white" />
+                    {/* Fallback */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#6c63ff] to-[#a78bfa] flex items-center justify-center">
+                      <Users className="w-5 h-5 text-white" />
+                    </div>
+                    {/* Thumbnail */}
+                    {ch.thumbnail_url && (
+                      <img
+                        src={ch.thumbnail_url}
+                        alt={ch.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={e => { e.currentTarget.style.display = 'none' }}
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-white/90 truncate">{ch.name}</p>

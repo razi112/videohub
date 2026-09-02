@@ -124,7 +124,7 @@ export default function MiniAudioPlayer() {
     }
   }, [isPlaying, currentVideo])
 
-  /* ── Progress ticker ───────────────────────────────────── */
+  /* ── Progress ticker — only runs while playing ─────────── */
   const tick = useCallback(() => {
     if (playerRef.current && !seeking) {
       setCurrentTime(playerRef.current.getCurrentTime() ?? 0)
@@ -133,9 +133,13 @@ export default function MiniAudioPlayer() {
   }, [seeking])
 
   useEffect(() => {
+    if (!isPlaying) {
+      cancelAnimationFrame(rafRef.current)
+      return
+    }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [tick])
+  }, [isPlaying, tick])
 
   /* ── Seek ───────────────────────────────────────────────── */
   function handleSeek(e: React.ChangeEvent<HTMLInputElement>) {

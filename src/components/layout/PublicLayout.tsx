@@ -1,29 +1,55 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
+import { useState } from 'react'
 import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
+import Sidebar from './Sidebar'
 import { Toaster } from 'react-hot-toast'
 
 export default function PublicLayout() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const location = useLocation()
+  const isShorts = location.pathname === '/shorts'
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
-      {/* Header — hidden on mobile, visible on md+ */}
-      <div className="hidden md:block">
-        <Header />
+
+      {/* ── Top bar — hidden on Shorts ── */}
+      {!isShorts && (
+        <div className="hidden md:block sticky top-0 z-50">
+          <Header
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(c => !c)}
+          />
+        </div>
+      )}
+
+      {/* ── Body ── */}
+      <div className="flex flex-1">
+
+        {/* Sidebar — hidden on Shorts */}
+        {!isShorts && (
+          <div
+            className="hidden md:block sticky self-start"
+            style={{ top: 64, height: 'calc(100vh - 64px)' }}
+          >
+            <Sidebar collapsed={sidebarCollapsed} />
+          </div>
+        )}
+
+        {/* Main content */}
+        <main className={`flex-1 min-w-0 ${isShorts ? '' : 'pb-[80px] md:pb-0'}`}>
+          <Outlet />
+          {!isShorts && (
+            <div className="hidden md:block">
+              <Footer />
+            </div>
+          )}
+        </main>
       </div>
 
-      {/* Main content — bottom padding clears the bottom nav on mobile */}
-      <main className="flex-1 pb-[80px] md:pb-0">
-        <Outlet />
-      </main>
-
-      {/* Footer — hidden on mobile, visible on md+ */}
-      <div className="hidden md:block">
-        <Footer />
-      </div>
-
-      {/* Bottom nav — md:hidden inside BottomNav */}
-      <BottomNav />
+      {/* ── Mobile bottom nav — hidden on Shorts ── */}
+      {!isShorts && <BottomNav />}
 
       <Toaster
         position="bottom-right"

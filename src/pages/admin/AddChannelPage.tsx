@@ -85,14 +85,14 @@ async function fetchRss(targetUrl: string): Promise<string> {
 }
 
 // ─── Resolve channel via API key (fast, reliable) ────────────────────────────
-async function resolveViaApiKey(url: string): Promise<{ channelId: string; name: string; handle?: string; thumbnailUrl?: string; videos: RssVideoEntry[] }> {
+async function resolveViaApiKey(url: string, limit = 15): Promise<{ channelId: string; name: string; handle?: string; thumbnailUrl?: string; videos: RssVideoEntry[] }> {
   const info = extractChannelIdentifier(url)
   if (!info) throw new Error('Not a valid YouTube channel URL')
 
   // resolveChannelIdViaApi also fetches contentDetails so we get uploadsPlaylistId
   // in the same request — fetchChannelVideosViaApi reuses it to avoid a second lookup
   const channelInfo = await resolveChannelIdViaApi(info)
-  const videos = await fetchChannelVideosViaApi(channelInfo.channelId, 15, channelInfo.uploadsPlaylistId)
+  const videos = await fetchChannelVideosViaApi(channelInfo.channelId, limit, channelInfo.uploadsPlaylistId)
 
   return {
     channelId: channelInfo.channelId,
@@ -104,7 +104,7 @@ async function resolveViaApiKey(url: string): Promise<{ channelId: string; name:
 }
 
 // ─── Resolve channel via RSS (no API key) ────────────────────────────────────
-async function resolveViaRss(url: string): Promise<{ channelId: string; name: string; videos: RssVideoEntry[] }> {
+async function resolveViaRss(url: string, limit = 15): Promise<{ channelId: string; name: string; videos: RssVideoEntry[] }> {
   const info = extractChannelIdentifier(url)
   if (!info) throw new Error('Not a valid YouTube channel URL')
 
@@ -113,7 +113,7 @@ async function resolveViaRss(url: string): Promise<{ channelId: string; name: st
     const xmlText = await fetchRss(rssUrl)
     if (!xmlText.includes('<feed')) throw new Error('Invalid RSS response.')
     const allVideos = parseChannelRss(xmlText)
-    const videos = await filterOutShortsFromRss(allVideos)
+    const videos = (await filterOutShortsFromRss(allVideos)).slice(0, limit)
     return {
       channelId: info.value,
       name: parseChannelNameFromRss(xmlText) || 'YouTube Channel',
@@ -127,7 +127,7 @@ async function resolveViaRss(url: string): Promise<{ channelId: string; name: st
     if (xmlText.includes('<feed')) {
       const m = xmlText.match(/<yt:channelId>(UC[\w-]{22})<\/yt:channelId>/)
       const allVideos = parseChannelRss(xmlText)
-      const videos = await filterOutShortsFromRss(allVideos)
+      const videos = (await filterOutShortsFromRss(allVideos)).slice(0, limit)
       return {
         channelId: m ? m[1] : info.value,
         name: parseChannelNameFromRss(xmlText) || info.value,
@@ -146,6 +146,9 @@ export default function AddChannelPage() {
   const hasApiKey = hasYouTubeApiKey()
 
   const [url, setUrl] = useState('')
+  const [videoLimit, setVideoLimit] = useState(15)
+  const [isCustomLimit, setIsCustomLimit] = useState(false)
+  const [customLimitInput, setCustomLimitInput] = useState('')
   const [fetching, setFetching] = useState(false)
   const [fetchStatus, setFetchStatus] = useState('')
   const [rssBlocked, setRssBlocked] = useState(false)
@@ -181,9 +184,9 @@ export default function AddChannelPage() {
       let result: { channelId: string; name: string; handle?: string; thumbnailUrl?: string; videos: RssVideoEntry[] }
 
       if (hasApiKey) {
-        result = await resolveViaApiKey(normalized)
+        result = await resolveViaApiKey(normalized, videoLimit)
       } else {
-        result = await resolveViaRss(normalized)
+        result = await resolveViaRss(normalized, videoLimit)
       }
 
       if (result.videos.length === 0) throw new Error('No public videos found for this channel.')
@@ -229,8 +232,10 @@ export default function AddChannelPage() {
         status: channelStatus,
         video_count: channelData.videos.length,
       })
-    } catch {
-      toast.error('Failed to save channel record')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err)
+      console.error('addChannel error:', err)
+      toast.error(`Failed to save channel: ${msg}`)
       setSaving(false)
       return
     }
@@ -316,13 +321,62 @@ export default function AddChannelPage() {
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
         <label className="block text-sm font-semibold text-white/70 mb-3">Channel URL</label>
 
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <span className="flex items-center gap-1.5 text-xs glass text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/25">
-            <Users className="w-3 h-3" /> Last 15 videos auto-imported
-          </span>
-          <span className="flex items-center gap-1.5 text-xs glass text-[#a78bfa] px-3 py-1 rounded-full border border-[#6c63ff]/25 font-semibold">
-            ✦ Coming Soon
-          </span>
+        <div className="flex gap-2 mb-4 flex-wrap items-center">
+          <span className="text-xs text-white/40 shrink-0">Videos to import:</span>
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {[10, 15, 20, 30, 50].map(n => (
+              <button
+                key={n}
+                onClick={() => { setVideoLimit(n); setIsCustomLimit(false); setCustomLimitInput('') }}
+                className={`flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-all ${
+                  !isCustomLimit && videoLimit === n
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                    : 'glass text-white/40 border-white/10 hover:text-white/70 hover:border-white/20'
+                }`}
+              >
+                {!isCustomLimit && videoLimit === n && <Users className="w-3 h-3" />}
+                {n}
+              </button>
+            ))}
+            {/* Custom option */}
+            {!isCustomLimit ? (
+              <button
+                onClick={() => { setIsCustomLimit(true); setCustomLimitInput(String(videoLimit)) }}
+                className="flex items-center gap-1 text-xs px-3 py-1 rounded-full border transition-all glass text-white/40 border-white/10 hover:text-white/70 hover:border-white/20"
+              >
+                Custom
+              </button>
+            ) : (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={customLimitInput}
+                  onChange={e => {
+                    const raw = e.target.value
+                    setCustomLimitInput(raw)
+                    const n = parseInt(raw, 10)
+                    if (!isNaN(n) && n >= 1) setVideoLimit(n)
+                  }}
+                  onBlur={() => {
+                    const n = parseInt(customLimitInput, 10)
+                    if (isNaN(n) || n < 1) { setCustomLimitInput(String(videoLimit)) }
+                  }}
+                  className="w-16 text-xs px-2 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/50 focus:outline-none focus:border-emerald-400/70 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  autoFocus
+                />
+                <button
+                  onClick={() => { setIsCustomLimit(false); setCustomLimitInput('') }}
+                  className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                  title="Cancel custom"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+          <span className="text-xs text-white/25 shrink-0">videos</span>
         </div>
 
         <div className="flex gap-2 sm:gap-3">

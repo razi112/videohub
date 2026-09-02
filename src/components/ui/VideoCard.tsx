@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Play, Eye, Star, Headphones, Radio } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -16,8 +17,13 @@ function formatViews(n: number): string {
   return String(n)
 }
 
+// Cache formatted dates so toLocaleDateString (expensive Intl) runs only once per unique ISO string
+const dateCache = new Map<string, string>()
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (dateCache.has(iso)) return dateCache.get(iso)!
+  const formatted = new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  dateCache.set(iso, formatted)
+  return formatted
 }
 
 const SONG_TAGS = new Set(['music', 'song', 'audio', 'nasheed', 'qawwali', 'naat', 'track', 'album'])
@@ -25,11 +31,14 @@ function isSong(video: Video): boolean {
   return video.tags?.some(t => SONG_TAGS.has(t.toLowerCase())) ?? false
 }
 
-export default function VideoCard({ video, showCategory = true }: VideoCardProps) {
+function VideoCard({ video, showCategory = true }: VideoCardProps) {
   const thumbnail = video.thumbnail_url || getThumbnailUrl(video.youtube_video_id, 'high')
   const song = isSong(video)
-  const { playVideo, currentVideo, isPlaying } = useAudioPlayer()
-  const isCurrentAudio = currentVideo?.id === video.id
+
+  // Granular selectors — each card only re-renders when ITS own audio state changes
+  const isCurrentAudio = useAudioPlayer(s => s.currentVideo?.id === video.id)
+  const isPlaying = useAudioPlayer(s => s.isPlaying && s.currentVideo?.id === video.id)
+  const playVideo = useAudioPlayer(s => s.playVideo)
 
   function handleAudio(e: React.MouseEvent) {
     e.preventDefault()
@@ -66,6 +75,8 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
           <motion.img
             src={thumbnail}
             alt={video.title}
+            loading="lazy"
+            decoding="async"
             variants={{ hover: { scale: 1.08 } }}
             transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="w-full h-full object-cover"
@@ -299,3 +310,5 @@ export default function VideoCard({ video, showCategory = true }: VideoCardProps
     </motion.div>
   )
 }
+
+export default memo(VideoCard)

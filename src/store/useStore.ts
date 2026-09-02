@@ -66,6 +66,7 @@ interface AppState {
 
   // Favorites
   favorites: Favorite[]
+  favoriteIds: Set<string>
   toggleFavorite: (videoId: string) => void
   isFavorite: (videoId: string) => boolean
 
@@ -76,6 +77,7 @@ interface AppState {
 
   // Downloads (in-app saved videos)
   downloads: Download[]
+  downloadIds: Set<string>
   toggleDownload: (videoId: string) => void
   isDownloaded: (videoId: string) => boolean
 
@@ -142,7 +144,7 @@ export const useStore = create<AppState>()(
 
       signOut: () => {
         supabase.auth.signOut().catch(() => {})
-        set({ currentUser: null, isAdmin: false, roleLoading: false, favorites: [], watchHistory: [], downloads: [] })
+        set({ currentUser: null, isAdmin: false, roleLoading: false, favorites: [], favoriteIds: new Set(), watchHistory: [], downloads: [], downloadIds: new Set() })
       },
 
       resolveRole: async () => {
@@ -223,13 +225,8 @@ export const useStore = create<AppState>()(
           return
         }
 
-        // Shuffle so no video is always pinned to the top (Fisher-Yates)
-        const shuffled = [...(data as Video[])]
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1))
-          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-        }
-        set({ videos: shuffled, videosLoading: false, videosError: null })
+        // Videos arrive ordered by created_at DESC from Supabase — no client shuffle needed
+        set({ videos: data as Video[], videosLoading: false, videosError: null })
       },
 
       loadCategories: async () => {
@@ -389,16 +386,30 @@ export const useStore = create<AppState>()(
           status: channel.status,
         }
 
-        const { data, error } = await supabase
+        // Use maybeSingle() instead of single() — upsert on conflict returns 0 rows
+        // when the row already exists and there's nothing to update, causing single()
+        // to throw PGRST116 which was silently swallowed as a local-only fallback.
+        let { data, error } = await supabase
           .from('channels')
           .upsert(payload, { onConflict: 'channel_id' })
           .select('*, category:categories(*)')
-          .single()
+          .maybeSingle()
+
+        // If upsert returned no rows (channel already existed, no-op), fetch the existing row
+        if (!error && !data) {
+          const existing = await supabase
+            .from('channels')
+            .select('*, category:categories(*)')
+            .eq('channel_id', channel.channel_id)
+            .maybeSingle()
+          data = existing.data
+          if (existing.error) error = existing.error
+        }
 
         if (error) {
           console.error('Error adding channel:', error)
-          // Fall back to local-only if table doesn't exist (42P01) or RLS blocks it
-          if (error.code === '42P01' || error.code === '42501' || error.message?.includes('channels')) {
+          // Fall back to local-only only if the table doesn't exist (setup not complete)
+          if (error.code === '42P01') {
             const localChannel: Channel = {
               id: `local_${Date.now()}`,
               created_at: new Date().toISOString(),
@@ -410,7 +421,10 @@ export const useStore = create<AppState>()(
             }))
             return localChannel
           }
-          throw error
+          // Throw a descriptive error so the UI can display it
+          const msg = (error as { message?: string }).message || JSON.stringify(error)
+          const code = (error as { code?: string }).code || ''
+          throw new Error(`[${code}] ${msg}`)
         }
         const saved = data as Channel
         set((s) => ({
@@ -488,34 +502,36 @@ export const useStore = create<AppState>()(
 
       // Favorites (local per-user)
       favorites: [],
+      favoriteIds: new Set<string>(),
       toggleFavorite: (videoId) => {
         const { favorites, currentUser } = get()
         // Allow saving without login (guest mode — stored locally)
         const userId = currentUser?.id ?? 'guest'
         const exists = favorites.find((f) => f.video_id === videoId)
+        let newFavorites: Favorite[]
         if (exists) {
-          set({ favorites: favorites.filter((f) => f.video_id !== videoId) })
+          newFavorites = favorites.filter((f) => f.video_id !== videoId)
         } else {
-          set({
-            favorites: [
-              ...favorites,
-              {
-                id: Date.now().toString(),
-                user_id: userId,
-                video_id: videoId,
-                created_at: new Date().toISOString(),
-              },
-            ],
-          })
+          newFavorites = [
+            ...favorites,
+            {
+              id: Date.now().toString(),
+              user_id: userId,
+              video_id: videoId,
+              created_at: new Date().toISOString(),
+            },
+          ]
         }
+        set({ favorites: newFavorites, favoriteIds: new Set(newFavorites.map(f => f.video_id)) })
       },
-      isFavorite: (videoId) => get().favorites.some((f) => f.video_id === videoId),
+      isFavorite: (videoId) => get().favoriteIds.has(videoId),
 
       // Watch History (local per-user)
       watchHistory: [],
       updateWatchProgress: (videoId, progress, completed = false) => {
         const { watchHistory, currentUser } = get()
-        if (!currentUser) return
+        // Allow history for guests too (stored locally), same as favorites
+        const userId = currentUser?.id ?? 'guest'
         const existing = watchHistory.find((h) => h.video_id === videoId)
         if (existing) {
           set({
@@ -531,7 +547,7 @@ export const useStore = create<AppState>()(
               ...watchHistory,
               {
                 id: Date.now().toString(),
-                user_id: currentUser.id,
+                user_id: userId,
                 video_id: videoId,
                 progress_seconds: progress,
                 completed,
@@ -545,27 +561,28 @@ export const useStore = create<AppState>()(
 
       // Downloads (in-app saved videos)
       downloads: [],
+      downloadIds: new Set<string>(),
       toggleDownload: (videoId) => {
         const { downloads, currentUser } = get()
         const userId = currentUser?.id ?? 'guest'
         const exists = downloads.find((d) => d.video_id === videoId)
+        let newDownloads: Download[]
         if (exists) {
-          set({ downloads: downloads.filter((d) => d.video_id !== videoId) })
+          newDownloads = downloads.filter((d) => d.video_id !== videoId)
         } else {
-          set({
-            downloads: [
-              {
-                id: Date.now().toString(),
-                user_id: userId,
-                video_id: videoId,
-                saved_at: new Date().toISOString(),
-              },
-              ...downloads,
-            ],
-          })
+          newDownloads = [
+            {
+              id: Date.now().toString(),
+              user_id: userId,
+              video_id: videoId,
+              saved_at: new Date().toISOString(),
+            },
+            ...downloads,
+          ]
         }
+        set({ downloads: newDownloads, downloadIds: new Set(newDownloads.map(d => d.video_id)) })
       },
-      isDownloaded: (videoId) => get().downloads.some((d) => d.video_id === videoId),
+      isDownloaded: (videoId) => get().downloadIds.has(videoId),
 
       // Search / Filter
       searchQuery: '',
@@ -591,6 +608,12 @@ export const useStore = create<AppState>()(
         isAdmin: s.isAdmin,
         darkMode: s.darkMode,
       }),
+      // Rebuild Set indexes after rehydration from localStorage
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        state.favoriteIds = new Set((state.favorites ?? []).map(f => f.video_id))
+        state.downloadIds = new Set((state.downloads ?? []).map(d => d.video_id))
+      },
     }
   )
 )
