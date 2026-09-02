@@ -222,7 +222,14 @@ export const useStore = create<AppState>()(
           set({ videosLoading: false, videosError: error.message })
           return
         }
-        set({ videos: data as Video[], videosLoading: false, videosError: null })
+
+        // Shuffle so no video is always pinned to the top (Fisher-Yates)
+        const shuffled = [...(data as Video[])]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        set({ videos: shuffled, videosLoading: false, videosError: null })
       },
 
       loadCategories: async () => {
@@ -261,6 +268,7 @@ export const useStore = create<AppState>()(
           status: video.status,
           is_featured: video.is_featured,
           is_short: video.is_short ?? false,
+          is_live: video.is_live ?? false,
           views: video.views ?? 0,
           tags: video.tags ?? [],
           duration: video.duration || null,
@@ -291,6 +299,7 @@ export const useStore = create<AppState>()(
         if (updates.status !== undefined) payload.status = updates.status
         if (updates.is_featured !== undefined) payload.is_featured = updates.is_featured
         if (updates.is_short !== undefined) payload.is_short = updates.is_short
+        if (updates.is_live !== undefined) payload.is_live = updates.is_live
         if (updates.tags !== undefined) payload.tags = updates.tags
         if (updates.duration !== undefined) payload.duration = updates.duration
         if (updates.views !== undefined) payload.views = updates.views

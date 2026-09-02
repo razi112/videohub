@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link2, Search, Eye, Save, RefreshCw, PlayCircle, Music, Zap } from 'lucide-react'
+import { Link2, Search, Eye, Save, RefreshCw, PlayCircle, Music, Zap, Radio } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { extractYouTubeVideoId, getEmbedUrl, getThumbnailUrl } from '../../lib/youtube'
 import toast from 'react-hot-toast'
@@ -24,6 +24,7 @@ export default function AddVideoPage() {
   const [isFeatured, setIsFeatured]   = useState(false)
   const [isSong, setIsSong]       = useState(false)
   const [isShort, setIsShort]     = useState(false)
+  const [isLive, setIsLive]       = useState(false)
   const [duration, setDuration]   = useState('')
   const [saving, setSaving]       = useState(false)
 
@@ -40,7 +41,7 @@ export default function AddVideoPage() {
 
   const handleReset = () => {
     setUrl(''); setVideoId(''); setFetched(false); setTitle(''); setDescription('')
-    setCategoryId(''); setTags(''); setStatus('published'); setIsFeatured(false); setIsSong(false); setIsShort(false); setDuration('')
+    setCategoryId(''); setTags(''); setStatus('published'); setIsFeatured(false); setIsSong(false); setIsShort(false); setIsLive(false); setDuration('')
   }
 
   const handleSave = async () => {
@@ -60,6 +61,7 @@ export default function AddVideoPage() {
         status,
         is_featured: isFeatured,
         is_short: isShort,
+        is_live: isLive,
         views: 0,
         tags: (() => {
           const base = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []
@@ -216,6 +218,14 @@ export default function AddVideoPage() {
                       <span className="flex items-center gap-1.5 text-sm text-white/60">
                         <Zap className={`w-3.5 h-3.5 transition-colors ${isShort ? 'text-[#f59e0b]' : 'text-white/25'}`} />
                         Short (appears in Shorts feed only)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={isLive} onChange={e => setIsLive(e.target.checked)}
+                        className="w-4 h-4 accent-[#ef4444]" />
+                      <span className="flex items-center gap-1.5 text-sm text-white/60">
+                        <Radio className={`w-3.5 h-3.5 transition-colors ${isLive ? 'text-red-400' : 'text-white/25'}`} />
+                        Live stream (shows LIVE badge &amp; live chat)
                       </span>
                     </label>
                   </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Save, ArrowLeft, Music, Zap } from 'lucide-react'
+import { Save, ArrowLeft, Music, Zap, Radio } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { getEmbedUrl } from '../../lib/youtube'
 import toast from 'react-hot-toast'
@@ -22,6 +22,7 @@ export default function EditVideoPage() {
   const [isFeatured, setIsFeatured]   = useState(video?.is_featured || false)
   const [isSong, setIsSong]       = useState(video?.tags?.includes('music') ?? false)
   const [isShort, setIsShort]     = useState(video?.is_short ?? false)
+  const [isLive, setIsLive]       = useState(video?.is_live ?? false)
   const [duration, setDuration]   = useState(video?.duration || '')
   const [saving, setSaving]       = useState(false)
 
@@ -50,6 +51,7 @@ export default function EditVideoPage() {
         status,
         is_featured: isFeatured,
         is_short: isShort,
+        is_live: isLive,
         duration: duration.trim() || undefined,
       })
       toast.success('Video updated successfully!')
@@ -157,6 +159,14 @@ export default function EditVideoPage() {
                 <span className="flex items-center gap-1.5 text-sm text-white/60">
                   <Zap className={`w-3.5 h-3.5 transition-colors ${isShort ? 'text-[#f59e0b]' : 'text-white/25'}`} />
                   Short (appears in Shorts feed only)
+                </span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={isLive} onChange={e => setIsLive(e.target.checked)}
+                  className="w-4 h-4 accent-[#ef4444]" />
+                <span className="flex items-center gap-1.5 text-sm text-white/60">
+                  <Radio className={`w-3.5 h-3.5 transition-colors ${isLive ? 'text-red-400' : 'text-white/25'}`} />
+                  Live stream (shows LIVE badge &amp; live chat)
                 </span>
               </label>
             </div>
