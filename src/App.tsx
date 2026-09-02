@@ -10,6 +10,7 @@ const VideosPage = lazy(() => import('./pages/VideosPage'))
 const VideoPlayerPage = lazy(() => import('./pages/VideoPlayerPage'))
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'))
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'))
+const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const ChannelsPage = lazy(() => import('./pages/ChannelsPage'))
 const ShortsPage = lazy(() => import('./pages/ShortsPage'))
@@ -39,6 +40,17 @@ export default function App() {
   const loadVideos = useStore(s => s.loadVideos)
   const loadCategories = useStore(s => s.loadCategories)
   const loadChannels = useStore(s => s.loadChannels)
+  const darkMode = useStore(s => s.darkMode)
+
+  // Sync dark/light class on <html> whenever the store value changes
+  useEffect(() => {
+    const root = document.documentElement
+    if (darkMode) {
+      root.classList.remove('light')
+    } else {
+      root.classList.add('light')
+    }
+  }, [darkMode])
 
   // Initial load — run once on mount
   useEffect(() => {
@@ -60,6 +72,7 @@ export default function App() {
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/channels" element={<ChannelsPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/history" element={<HistoryPage />} />
             <Route path="/shorts" element={<ShortsPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>

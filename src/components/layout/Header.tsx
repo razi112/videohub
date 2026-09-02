@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, Menu, X, LayoutDashboard, LogOut, ShieldCheck, LogIn, PanelLeft } from 'lucide-react'
+import { Search, Menu, X, LayoutDashboard, LogOut, ShieldCheck, LogIn, PanelLeft, Sun, Moon } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '../../store/useStore'
@@ -22,7 +22,7 @@ interface HeaderProps {
 export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { isAdmin, currentUser, signOut, setCurrentUser } = useStore()
+  const { isAdmin, currentUser, signOut, setCurrentUser, darkMode, toggleDarkMode } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -92,6 +92,19 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
               className="hidden md:flex lg:hidden w-9 h-9 glass rounded-full items-center justify-center text-white/60 hover:text-white transition-colors"
               onClick={() => setSearchOpen(!searchOpen)} aria-label="Search">
               <Search className="w-4 h-4" />
+            </motion.button>
+
+            {/* ── Dark / Light toggle ── */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleDarkMode}
+              className="w-9 h-9 glass rounded-full flex items-center justify-center transition-colors"
+              style={{ color: darkMode ? 'rgba(255,255,255,0.55)' : 'rgba(30,30,60,0.65)' }}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode
+                ? <Sun className="w-4 h-4" />
+                : <Moon className="w-4 h-4" />}
             </motion.button>
 
             {isAdmin ? (

@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   User, LogOut, Heart, Settings,
   ChevronRight, Mail, Shield, Loader2, Eye, EyeOff, Lock, AtSign,
-  History, Download, PlayCircle, CheckCircle2, Clock, Trash2,
+  History, Download,
+  Sun, Moon,
+  CheckCircle2, Trash2,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
@@ -490,92 +492,6 @@ export function GoogleSignInPrompt({
   )
 }
 
-/* ── Watch History Section ───────────────────────────────── */
-function HistorySection() {
-  const { watchHistory, videos } = useStore()
-  const [expanded, setExpanded] = useState(false)
-
-  const historyWithVideos = useMemo(() =>
-    watchHistory
-      .slice()
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      .map((h) => ({ ...h, video: videos.find((v) => v.id === h.video_id) }))
-      .filter((h) => h.video),
-    [watchHistory, videos]
-  )
-
-  const visible = expanded ? historyWithVideos : historyWithVideos.slice(0, 3)
-
-  if (historyWithVideos.length === 0) {
-    return (
-      <div
-        className="flex flex-col items-center gap-2 py-6 rounded-2xl"
-        style={glass.row}
-      >
-        <Clock className="w-7 h-7 text-white/15" />
-        <p className="text-xs text-white/25">No watch history yet</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {visible.map((h) => {
-        const pct = h.video!.duration
-          ? Math.min(100, Math.round((h.progress_seconds / parseDuration(h.video!.duration)) * 100))
-          : 0
-
-        return (
-          <Link key={h.id} to={`/videos/${h.video_id}?autoplay=1`} className="block">
-            <motion.div
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all hover:brightness-110"
-              style={glass.row}
-            >
-              <div className="relative w-16 h-10 rounded-lg overflow-hidden shrink-0 bg-white/5">
-                {h.video!.thumbnail_url ? (
-                  <img src={h.video!.thumbnail_url} alt={h.video!.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <PlayCircle className="w-5 h-5 text-white/20" />
-                  </div>
-                )}
-                {pct > 0 && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10">
-                    <div className="h-full rounded-full" style={{
-                      width: `${pct}%`,
-                      background: h.completed ? '#34d399' : 'linear-gradient(90deg, #6c63ff, #a78bfa)',
-                    }} />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-white/80 truncate">{h.video!.title}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {h.completed
-                    ? <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                    : <Clock className="w-3 h-3 text-white/25 shrink-0" />}
-                  <p className="text-[10px] text-white/25">
-                    {h.completed ? 'Watched' : `${formatSeconds(h.progress_seconds)} watched`}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-white/20 shrink-0" />
-            </motion.div>
-          </Link>
-        )
-      })}
-
-      {historyWithVideos.length > 3 && (
-        <button onClick={() => setExpanded(p => !p)}
-          className="text-xs text-[#a78bfa] hover:text-white transition-colors text-center py-1">
-          {expanded ? 'Show less' : `Show ${historyWithVideos.length - 3} more`}
-        </button>
-      )}
-    </div>
-  )
-}
-
 /* ── Downloads Section ───────────────────────────────────── */
 function DownloadsSection() {
   const { downloads, videos, toggleDownload } = useStore()
@@ -645,21 +561,6 @@ function DownloadsSection() {
   )
 }
 
-/* ── Helpers ─────────────────────────────────────────────── */
-function parseDuration(dur: string): number {
-  const parts = dur.split(':').map(Number)
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-  if (parts.length === 2) return parts[0] * 60 + parts[1]
-  return Number(dur) || 1
-}
-
-function formatSeconds(s: number): string {
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  if (m >= 60) { const h = Math.floor(m / 60); return `${h}h ${m % 60}m` }
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`
-}
-
 /* ── Profile row ─────────────────────────────────────────── */
 function ProfileRow({
   icon: Icon, label, value, href, onClick, danger = false,
@@ -714,7 +615,7 @@ function ProfileRow({
 
 /* ── Main AccountPage ─────────────────────────────────────── */
 export default function AccountPage() {
-  const { currentUser, isAdmin, signOut, favorites, watchHistory, downloads } = useStore()
+  const { currentUser, isAdmin, signOut, favorites, watchHistory, downloads, darkMode, toggleDarkMode } = useStore()
   const navigate = useNavigate()
 
   function handleSignOut() {
@@ -816,20 +717,56 @@ export default function AccountPage() {
 
           {/* ── History ── */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between px-1 mb-1">
-              <p className="text-xs font-semibold text-white/25 uppercase tracking-widest flex items-center gap-1.5">
-                <History className="w-3 h-3" /> History
-              </p>
-              {watchHistory.length > 0 && (
-                <button
-                  onClick={() => { useStore.setState({ watchHistory: [] }); toast.success('Watch history cleared') }}
-                  className="flex items-center gap-1 text-[10px] text-white/25 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" /> Clear
-                </button>
-              )}
-            </div>
-            <HistorySection />
+            <ProfileRow icon={History} label="Watch History"
+              value={`${watchHistory.length} video${watchHistory.length !== 1 ? 's' : ''} watched`} href="/history" />
+          </div>
+
+          {/* ── Preferences ── */}
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-semibold text-white/25 uppercase tracking-widest px-1 mb-1">Preferences</p>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={toggleDarkMode}
+              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl transition-all hover:brightness-110 w-full text-left"
+              style={glass.row}
+            >
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  background: 'rgba(108,99,255,0.15)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(108,99,255,0.3)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.12) inset',
+                }}
+              >
+                {darkMode
+                  ? <Sun className="w-4 h-4 text-[#a78bfa]" />
+                  : <Moon className="w-4 h-4 text-[#a78bfa]" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white/80">
+                  {darkMode ? 'Light Mode' : 'Dark Mode'}
+                </p>
+                <p className="text-xs text-white/30 mt-0.5">
+                  {darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+                </p>
+              </div>
+              {/* Toggle pill */}
+              <div
+                className="relative w-11 h-6 rounded-full transition-colors shrink-0"
+                style={{ background: darkMode ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.15)' }}
+              >
+                <div
+                  className="absolute top-0.5 w-5 h-5 rounded-full transition-all"
+                  style={{
+                    left: darkMode ? 'calc(100% - 22px)' : '2px',
+                    background: darkMode ? '#a78bfa' : 'rgba(255,255,255,0.6)',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                  }}
+                />
+              </div>
+            </motion.button>
           </div>
 
           {/* ── Downloads ── */}
