@@ -208,19 +208,49 @@ export const useStore = create<AppState>()(
           return query
         }
 
-        let { data, error } = await runQuery()
+        // On Android the WebView network stack is sometimes not ready on the very
+        // first tick after app launch. Retry up to 3 times with a short delay so
+        // a transient startup "Failed to fetch" does not permanently break the list.
+        const MAX_RETRIES = 3
+        const RETRY_DELAY_MS = 1500
+        let attempt = 0
+        let data: Video[] | null = null
+        let error: { message: string; code?: string } | null = null
 
-        // If JWT expired, refresh the session and retry once
-        if (error && isJwtExpired(error)) {
-          console.warn('loadVideos: JWT expired — refreshing session and retrying')
-          const refreshed = await supabase.auth.refreshSession()
-          if (!refreshed.error) {
-            ;({ data, error } = await runQuery())
+        while (attempt < MAX_RETRIES) {
+          attempt++
+          ;({ data, error } = await runQuery() as { data: Video[] | null; error: { message: string; code?: string } | null })
+
+          // If JWT expired, refresh the session and retry once immediately
+          if (error && isJwtExpired(error)) {
+            console.warn('loadVideos: JWT expired — refreshing session and retrying')
+            const refreshed = await supabase.auth.refreshSession()
+            if (!refreshed.error) {
+              ;({ data, error } = await runQuery() as { data: Video[] | null; error: { message: string; code?: string } | null })
+            }
+          }
+
+          if (!error) break // success
+
+          const isNetworkError = (
+            error.message?.toLowerCase().includes('failed to fetch') ||
+            error.message?.toLowerCase().includes('network') ||
+            error.message?.toLowerCase().includes('fetch')
+          )
+
+          if (isNetworkError && attempt < MAX_RETRIES) {
+            console.warn(
+              `loadVideos: network error on attempt ${attempt}/${MAX_RETRIES} — retrying in ${RETRY_DELAY_MS}ms`,
+              error.message
+            )
+            await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+          } else {
+            break // non-network error or final attempt — stop retrying
           }
         }
 
         if (error) {
-          console.error('loadVideos error:', error.message, error.code)
+          console.error('loadVideos failed after', attempt, 'attempt(s):', error.message, error.code)
           set({ videosLoading: false, videosError: error.message })
           return
         }

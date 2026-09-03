@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network security config for VideoHub Android app.
+  Explicitly trusts the Supabase project domain so that fetch() calls from
+  the Capacitor WebView are not blocked by Android's default security policy
+  on API 28+ devices.
+  Cleartext (HTTP) traffic is disabled — all requests must use HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust the system CA store (covers *.supabase.co and youtube.com) -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Explicitly permit HTTPS to the Supabase project -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">supabase.com</domain>
+        <!-- YouTube API and thumbnails -->
+        <domain includeSubdomains="true">youtube.com</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">ytimg.com</domain>
+        <domain includeSubdomains="true">googlevideo.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
